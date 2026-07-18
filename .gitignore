@@ -8,3 +8,4 @@ build/
 server/prisma/dev.db
 coverage/
 .vite/
+*.tsbuildinfo

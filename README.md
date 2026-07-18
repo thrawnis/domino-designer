@@ -75,19 +75,21 @@ npx prisma migrate dev
    persistence. On startup the app container automatically runs
    `prisma migrate deploy` before starting the server.
 
-3. **Reverse proxy**: the `app` service does not publish a port by default and has
-   no built-in TLS — it's meant to sit behind the reverse proxy you already run
-   (Traefik / nginx / Caddy). Two ways to wire it up:
-   - **Same Docker network**: attach `app` to your proxy's Docker network (add an
-     `external` network in `docker-compose.yml` and reference it under `app`), then
-     point your proxy at `app:4000` using your proxy's normal service-discovery
-     config (Traefik labels, nginx `proxy_pass`, Caddy `reverse_proxy`, etc.).
-   - **Published port**: uncomment the `ports: ["4000:4000"]` line under `app` in
-     `docker-compose.yml` and point your proxy at `localhost:4000` (or the host IP)
-     instead.
+3. **Reverse proxy (nginx on a separate Proxmox LXC)**: since nginx isn't on the
+   same host as Docker, it can't reach the app over a shared Docker network — the
+   app's port has to be published on the Docker host's LAN so the nginx LXC can
+   reach it over the network. `docker-compose.yml` publishes port 4000 bound to
+   `APP_BIND_ADDRESS` (set this in `.env` to the Docker host's LAN IP, e.g.
+   `192.168.1.50`) — deliberately *not* `0.0.0.0`, so the app isn't reachable from
+   outside your LAN, only from that specific interface.
 
-   Tell me which proxy you use and I can add the exact config (Traefik labels,
-   an nginx `server {}` block, or a Caddyfile snippet).
+   A ready-to-adapt nginx server block is in
+   [`deploy/nginx/domino-designer.conf`](deploy/nginx/domino-designer.conf) — copy
+   it to the LXC, replace the upstream IP, `server_name`, and certificate paths,
+   then reload nginx (`nginx -t && systemctl reload nginx`). It terminates TLS at
+   nginx and forwards `X-Forwarded-Proto`, which the app relies on to mark session
+   cookies `Secure` and to trust proxy headers (`trust proxy` is already enabled
+   server-side, so no code changes needed here).
 
 4. The app trusts `X-Forwarded-*` headers from a proxy (`trust proxy` is enabled)
    and marks session cookies `Secure` whenever `NODE_ENV=production` — make sure

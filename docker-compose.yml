@@ -27,10 +27,12 @@ services:
       PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-domino}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-domino}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
-    # No ports published by default: put this behind your existing reverse proxy
-    # on the shared Docker network (see README). Uncomment for direct/local access:
-    # ports:
-    #   - "4000:4000"
+    # Published so the nginx LXC (a separate host on your LAN) can reach this
+    # container. Bind to a specific LAN-facing IP on the Docker host, not 0.0.0.0,
+    # so it isn't reachable from outside your LAN. Set APP_BIND_ADDRESS in .env,
+    # e.g. APP_BIND_ADDRESS=192.168.1.50 (see README).
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:4000:4000"
 
 volumes:
   domino-db-data:

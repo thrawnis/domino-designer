@@ -13,12 +13,11 @@ actually own.
   `connect-pg-simple`), passwords hashed with Argon2id. No secrets or payment
   data are handled — the only sensitive data is the login credentials themselves.
 
-## Design assumption worth confirming
+## Domino model
 
-Physical domino mosaic art works by standing dominoes on edge so only one solid-color
-face shows. This app therefore treats **one domino as one mosaic cell/pixel** (a
-roughly 1:2 width:height tile), not as a two-ended pipped domino. If that's not what
-you meant, let me know and the data model / renderer will need to change.
+These are pipless stacking/tricks dominoes (solid-color faces, no dots), stood on
+edge so one face shows. The app treats **one domino as one mosaic cell/pixel** (a
+roughly 1:2 width:height tile) accordingly.
 
 ## Known v1 limitations
 

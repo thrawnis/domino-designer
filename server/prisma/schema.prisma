@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  colors       DominoColor[]
+  designs      Design[]
+}
+
+model DominoColor {
+  id         String            @id @default(uuid())
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  hex        String
+  quantity   Int               @default(0)
+  notes      String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  placements DominoPlacement[]
+
+  @@unique([userId, name])
+}
+
+model Design {
+  id         String            @id @default(uuid())
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  gridWidth  Int               @default(20)
+  gridHeight Int               @default(20)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  placements DominoPlacement[]
+}
+
+model DominoPlacement {
+  id       String      @id @default(uuid())
+  designId String
+  design   Design      @relation(fields: [designId], references: [id], onDelete: Cascade)
+  colorId  String
+  color    DominoColor @relation(fields: [colorId], references: [id], onDelete: Restrict)
+  x        Float
+  y        Float
+  rotation Float       @default(0)
+  zIndex   Int         @default(0)
+
+  @@index([designId])
+}

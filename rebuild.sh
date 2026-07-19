@@ -36,5 +36,5 @@ docker compose up -d --force-recreate --remove-orphans app
 echo "==> Removing dangling images"
 docker image prune -f
 
-echo "==> Done. App is running (see APP_BIND_ADDRESS:4000 in .env, behind your nginx reverse proxy)."
+echo "==> Done. App is running on port 4000 (all interfaces)."
 docker compose ps

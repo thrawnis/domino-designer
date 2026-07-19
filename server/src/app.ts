@@ -50,7 +50,11 @@ export function createApp() {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        secure: env.isProd,
+        // 'auto' marks the cookie Secure only when the request is actually HTTPS
+        // (directly, or via a trusted proxy's X-Forwarded-Proto). Needed because
+        // this app may be reached both over plain HTTP (direct LAN access) and
+        // HTTPS (via a reverse proxy or Cloudflare Tunnel) at the same time.
+        secure: 'auto',
         sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
       },

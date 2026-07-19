@@ -27,12 +27,12 @@ services:
       PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-domino}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-domino}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
-    # Published so the nginx LXC (a separate host on your LAN) can reach this
-    # container. Bind to a specific LAN-facing IP on the Docker host, not 0.0.0.0,
-    # so it isn't reachable from outside your LAN. Set APP_BIND_ADDRESS in .env,
-    # e.g. APP_BIND_ADDRESS=192.168.1.50 (see README).
+    # Published on all interfaces: reachable from other LAN machines (nginx LXC,
+    # etc.) and from a Cloudflare Tunnel / cloudflared process, however you point
+    # them at it. Session cookies use `secure: 'auto'` server-side, so login works
+    # whether a given request arrives over plain HTTP or HTTPS.
     ports:
-      - "${APP_BIND_ADDRESS:-127.0.0.1}:4000:4000"
+      - "4000:4000"
 
 volumes:
   domino-db-data:

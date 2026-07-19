@@ -77,25 +77,33 @@ npx prisma migrate dev
    persistence. On startup the app container automatically runs
    `prisma migrate deploy` before starting the server.
 
-3. **Reverse proxy (nginx on a separate Proxmox LXC)**: since nginx isn't on the
-   same host as Docker, it can't reach the app over a shared Docker network — the
-   app's port has to be published on the Docker host's LAN so the nginx LXC can
-   reach it over the network. `docker-compose.yml` publishes port 4000 bound to
-   `APP_BIND_ADDRESS` (set this in `.env` to the Docker host's LAN IP, e.g.
-   `192.168.1.50`) — deliberately *not* `0.0.0.0`, so the app isn't reachable from
-   outside your LAN, only from that specific interface.
+3. **Network exposure**: `docker-compose.yml` publishes port 4000 on all
+   interfaces (`4000:4000`), so it's reachable from any machine on your LAN, your
+   nginx LXC, and a Cloudflare Tunnel (`cloudflared`) pointed at the Docker host —
+   whichever paths you want, simultaneously. The app itself does not terminate TLS,
+   so anything reaching it over plain HTTP gets plain HTTP; anything reaching it
+   via a proxy that terminates HTTPS (nginx, Cloudflare Tunnel) gets HTTPS. Session
+   cookies use `secure: 'auto'` server-side, so login works correctly either way —
+   marked `Secure` only on requests that were actually HTTPS.
 
-   A ready-to-adapt nginx server block is in
+   An optional, ready-to-adapt nginx server block (if you still want nginx in
+   front of some access paths) is in
    [`deploy/nginx/domino-designer.conf`](deploy/nginx/domino-designer.conf) — copy
    it to the LXC, replace the upstream IP, `server_name`, and certificate paths,
-   then reload nginx (`nginx -t && systemctl reload nginx`). It terminates TLS at
-   nginx and forwards `X-Forwarded-Proto`, which the app relies on to mark session
-   cookies `Secure` and to trust proxy headers (`trust proxy` is already enabled
-   server-side, so no code changes needed here).
+   then reload nginx (`nginx -t && systemctl reload nginx`).
 
-4. The app trusts `X-Forwarded-*` headers from a proxy (`trust proxy` is enabled)
-   and marks session cookies `Secure` whenever `NODE_ENV=production` — make sure
-   your reverse proxy terminates TLS, since the app itself does not.
+4. **Cloudflare Tunnel**: point `cloudflared` at `http://<docker-host-ip>:4000`
+   (or `http://app:4000` if you run `cloudflared` as a container on the same
+   Docker network). Cloudflare terminates TLS at its edge and forwards
+   `X-Forwarded-Proto: https` to the tunnel, which the app already trusts
+   (`trust proxy` is enabled) to mark cookies `Secure` correctly.
+
+   One thing to be aware of: exposing the app publicly via Cloudflare Tunnel means
+   the login/register endpoints are reachable from the internet. Login attempts
+   are rate-limited (10 / 15 min per IP) and passwords are Argon2id-hashed, but for
+   extra protection you may still want to put this app behind Cloudflare Access
+   (or a similar auth gate) if you'd rather not expose even the login screen
+   publicly.
 
 ## Security notes
 

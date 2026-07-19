@@ -19,6 +19,21 @@ if [ ! -f "$REPO_DIR/.env" ]; then
   exit 1
 fi
 
+# Docker Compose looks for the buildx plugin under ~/.docker/cli-plugins first;
+# on some hosts it's only installed system-wide, which Compose won't find on its
+# own, causing multi-stage builds to silently fall back to the legacy builder and
+# fail. Symlink it in if needed.
+if [ ! -x "$HOME/.docker/cli-plugins/docker-buildx" ]; then
+  for candidate in /usr/libexec/docker/cli-plugins/docker-buildx /usr/lib/docker/cli-plugins/docker-buildx; do
+    if [ -x "$candidate" ]; then
+      echo "==> Linking docker-buildx into ~/.docker/cli-plugins so Compose can find it"
+      mkdir -p "$HOME/.docker/cli-plugins"
+      ln -sf "$candidate" "$HOME/.docker/cli-plugins/docker-buildx"
+      break
+    fi
+  done
+fi
+
 # -- Build and start containers -----------------------------------------------
 
 echo "==> Building containers"

@@ -25,7 +25,15 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-domino}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-domino}
+      # Passed as separate fields (not a pre-built DATABASE_URL) because
+      # POSTGRES_PASSWORD may contain characters like @, :, /, or % that are
+      # reserved in a URL; docker-entrypoint.sh percent-encodes them before
+      # assembling the real connection string.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-domino}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-domino}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
     # Published on all interfaces: reachable from other LAN machines (nginx LXC,
     # etc.) and from a Cloudflare Tunnel / cloudflared process, however you point

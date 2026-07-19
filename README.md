@@ -69,6 +69,9 @@ npx prisma migrate dev
    ```bash
    docker compose up -d --build
    ```
+   Or, for later redeploys, use `./rebuild.sh` — it pulls the latest `dev` branch,
+   rebuilds, and restarts `db`/`app` without tearing down the Postgres volume.
+
    This builds one `app` image (Express server serving both the API and the built
    React static assets) and a `db` (Postgres) service with a named volume for
    persistence. On startup the app container automatically runs

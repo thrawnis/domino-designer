@@ -24,7 +24,8 @@ ENV NODE_ENV=production
 WORKDIR /app
 RUN apk add --no-cache libc6-compat vips-dev
 COPY --from=server-build /repo/server/package.json ./package.json
-COPY --from=server-build /repo/server/node_modules ./node_modules
+# npm workspaces hoists dependencies to the repo root, not server/node_modules.
+COPY --from=server-build /repo/node_modules ./node_modules
 COPY --from=server-build /repo/server/dist ./dist
 COPY --from=server-build /repo/server/public ./public
 COPY --from=server-build /repo/server/prisma ./prisma

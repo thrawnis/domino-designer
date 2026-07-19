@@ -11,6 +11,9 @@ RUN npm run build --workspace client
 ## Build the server (TypeScript -> dist, plus Prisma client)
 FROM node:20-alpine AS server-build
 WORKDIR /repo
+# Prisma's engine binaries need libssl to detect the correct build target and
+# to load at all; without it "prisma generate" silently picks the wrong engine.
+RUN apk add --no-cache openssl
 COPY package.json ./
 COPY server/package.json server/package.json
 RUN npm install --workspace server --include-workspace-root=false
@@ -22,7 +25,7 @@ RUN npm run build --workspace server
 FROM node:20-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-RUN apk add --no-cache libc6-compat vips-dev
+RUN apk add --no-cache libc6-compat vips-dev openssl
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=server-build /repo/server/package.json ./package.json
 # npm workspaces hoists dependencies to the repo root, not server/node_modules.

@@ -19,6 +19,25 @@ These are pipless stacking/tricks dominoes (solid-color faces, no dots), stood o
 edge so one face shows. The app treats **one domino as one mosaic cell/pixel** (a
 roughly 1:2 width:height tile) accordingly.
 
+### Physical reference dimensions
+
+Recorded here (and as the single source of truth in `client/src/utils/dominoSpec.ts`,
+mirrored in `server/src/utils/dominoSpec.ts`) for any future feature that needs real
+measurements — weight/footprint estimates, materials lists, etc:
+
+| Dimension | Value |
+| --- | --- |
+| Length (visible face height, standing) | 1.88 in / 48 mm |
+| Width (side-to-side along a row/chain)  | 0.945 in / 24 mm |
+| Thickness (front-to-back, standing)     | 0.29 in / 7.5 mm |
+| Weight                                  | 0.30 oz / 8.5 g |
+
+**Spacing**: these are stacking/toppling dominoes, so adjacent dominoes must not
+touch. The editor and image importer both space placed dominoes by a gap of
+**twice the domino thickness (~0.58 in / 15 mm)**, applied the same way both along
+a chain ("one in front of the other") and between adjacent parallel toppling rows.
+This is a fixed default, not currently user-adjustable.
+
 ## Known v1 limitations
 
 - Inventory quantity remaining is tracked **per design**, not across all of your

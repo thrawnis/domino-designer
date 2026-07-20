@@ -2,8 +2,9 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { Design, GridCell, ImportGridResult } from '../types';
+import { PITCH_ASPECT, PITCH_X_RATIO, PITCH_Y_RATIO } from '../utils/dominoSpec';
 
-// Dominoes stand ~1 wide : 2 tall, so preview cells are drawn tall to match how
+// Dominoes stand ~1 wide : 2 tall, so preview tiles are drawn tall to match how
 // the design will actually look (and how the editor renders them).
 const CELL_ASPECT = 2;
 const MAX_CELLS = 12000;
@@ -17,11 +18,17 @@ interface PreviewResponse {
 }
 
 /** Draws the mosaic to a single canvas (one element, not one div per cell) so
- * large grids don't create tens of thousands of DOM nodes. */
+ * large grids don't create tens of thousands of DOM nodes. Tiles are drawn
+ * smaller than their grid pitch, matching the editor's spacing, so the
+ * preview shows the same not-touching layout the created design will have. */
 function PreviewCanvas({ cells, gridWidth, gridHeight }: { cells: GridCell[]; gridWidth: number; gridHeight: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const cw = Math.max(1, Math.min(6, Math.floor(260 / gridWidth)));
+  const cw = Math.max(1, Math.min(6, Math.floor(260 / (gridWidth * PITCH_X_RATIO))));
   const ch = cw * CELL_ASPECT;
+  const pitchX = cw * PITCH_X_RATIO;
+  const pitchY = ch * PITCH_Y_RATIO;
+  const offsetX = (pitchX - cw) / 2;
+  const offsetY = (pitchY - ch) / 2;
 
   useEffect(() => {
     const canvas = ref.current;
@@ -39,16 +46,16 @@ function PreviewCanvas({ cells, gridWidth, gridHeight }: { cells: GridCell[]; gr
     }
     for (const c of cells) {
       ctx.fillStyle = c.hex;
-      ctx.fillRect(c.x * cw, c.y * ch, cw, ch);
+      ctx.fillRect(c.x * pitchX + offsetX, c.y * pitchY + offsetY, cw, ch);
     }
-  }, [cells, cw, ch]);
+  }, [cells, cw, ch, pitchX, pitchY, offsetX, offsetY]);
 
   return (
     <canvas
       ref={ref}
       className="import-preview"
-      width={gridWidth * cw}
-      height={gridHeight * ch}
+      width={gridWidth * pitchX}
+      height={gridHeight * pitchY}
     />
   );
 }
@@ -67,11 +74,12 @@ export default function ImageImportPage() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Derive height from the image's aspect ratio and the 1:2 domino shape so the
-  // physical result isn't stretched. imgAspect is width/height of the source.
+  // Derive height from the image's aspect ratio and the physical grid pitch
+  // (tile shape + required gap) so the built result isn't stretched.
+  // imgAspect is width/height of the source.
   const gridHeight = useMemo(() => {
     if (keepAspect && imgAspect) {
-      return Math.max(1, Math.min(MAX_DIM, Math.round(dominoesWide / imgAspect / CELL_ASPECT)));
+      return Math.max(1, Math.min(MAX_DIM, Math.round((dominoesWide * PITCH_ASPECT) / imgAspect)));
     }
     return manualHeight;
   }, [keepAspect, imgAspect, dominoesWide, manualHeight]);

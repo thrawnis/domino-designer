@@ -4,9 +4,17 @@ import { api, ApiError } from '../api/client';
 import { Design, DominoColor, DominoPlacement } from '../types';
 import { swatchStyle } from '../utils/swatchStyle';
 import ColorBreakdownModal from '../components/ColorBreakdownModal';
+import { PITCH_X_RATIO, PITCH_Y_RATIO } from '../utils/dominoSpec';
 
-const CELL_W = 16;
-const CELL_H = 32;
+// A domino's own rendered footprint (width x length, ~24mm x 48mm at this scale).
+const TILE_W = 16;
+const TILE_H = 32;
+// Grid pitch: distance between adjacent placement slots, wider than the tile
+// itself so dominoes never render touching (see dominoSpec.ts for why).
+const PITCH_X = TILE_W * PITCH_X_RATIO;
+const PITCH_Y = TILE_H * PITCH_Y_RATIO;
+const TILE_OFFSET_X = (PITCH_X - TILE_W) / 2;
+const TILE_OFFSET_Y = (PITCH_Y - TILE_H) / 2;
 
 interface LocalPlacement {
   localId: string;
@@ -126,8 +134,8 @@ export default function DesignEditorPage() {
     }
     if (!design || !canvasRef.current || !selectedColorId) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / CELL_W;
-    const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / CELL_H;
+    const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / PITCH_X;
+    const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / PITCH_Y;
     addTileAt(gx, gy);
   }
 
@@ -137,16 +145,16 @@ export default function DesignEditorPage() {
     (e.target as Element).setPointerCapture(e.pointerId);
     setSelectedPlacementId(p.localId);
     const rect = canvasRef.current!.getBoundingClientRect();
-    const pointerGx = (e.clientX - rect.left + canvasRef.current!.scrollLeft) / CELL_W;
-    const pointerGy = (e.clientY - rect.top + canvasRef.current!.scrollTop) / CELL_H;
+    const pointerGx = (e.clientX - rect.left + canvasRef.current!.scrollLeft) / PITCH_X;
+    const pointerGy = (e.clientY - rect.top + canvasRef.current!.scrollTop) / PITCH_Y;
     dragRef.current = { localId: p.localId, offsetX: pointerGx - p.x, offsetY: pointerGy - p.y, moved: false };
   }
 
   function onTilePointerMove(e: React.PointerEvent) {
     if (!dragRef.current || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / CELL_W - dragRef.current.offsetX;
-    const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / CELL_H - dragRef.current.offsetY;
+    const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / PITCH_X - dragRef.current.offsetX;
+    const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / PITCH_Y - dragRef.current.offsetY;
     const { localId } = dragRef.current;
     dragRef.current.moved = true;
     setPlacements((prev) =>
@@ -281,7 +289,10 @@ export default function DesignEditorPage() {
       <div className="editor-layout">
         <div className="palette-panel card">
           <strong>Palette</strong>
-          <p className="hint">Select a color, then click the canvas to place a domino.</p>
+          <p className="hint">
+            Select a color, then click the canvas to place a domino. Dominoes are spaced automatically
+            so they don't touch, for stacking/toppling clearance.
+          </p>
           {colors.map((c) => (
             <div
               key={c.id}
@@ -313,8 +324,8 @@ export default function DesignEditorPage() {
           <div
             style={{
               position: 'relative',
-              width: design.gridWidth * CELL_W,
-              height: design.gridHeight * CELL_H,
+              width: design.gridWidth * PITCH_X,
+              height: design.gridHeight * PITCH_Y,
             }}
           >
             {placements.map((p) => (
@@ -323,10 +334,10 @@ export default function DesignEditorPage() {
                 className={`domino-tile ${p.localId === selectedPlacementId ? 'draft' : ''}`}
                 onPointerDown={(e) => onTilePointerDown(e, p)}
                 style={{
-                  left: p.x * CELL_W,
-                  top: p.y * CELL_H,
-                  width: CELL_W,
-                  height: CELL_H,
+                  left: p.x * PITCH_X + TILE_OFFSET_X,
+                  top: p.y * PITCH_Y + TILE_OFFSET_Y,
+                  width: TILE_W,
+                  height: TILE_H,
                   ...swatchStyle(currentHexById.get(p.colorId) ?? p.hex),
                   transform: `rotate(${p.rotation}deg)`,
                   transformOrigin: 'center',

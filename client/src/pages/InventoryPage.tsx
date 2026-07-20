@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { DominoColor } from '../types';
-import ColorWheelPicker from '../components/ColorWheelPicker';
+import ColorPicker from '../components/ColorPicker';
+import { swatchStyle } from '../utils/swatchStyle';
 
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+const HEX_RE = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
 
 interface FormState {
   id?: string;
@@ -95,7 +96,7 @@ export default function InventoryPage() {
         <div className="color-grid">
           {colors.map((c) => (
             <div key={c.id} className="card color-card">
-              <div className="color-swatch" style={{ background: c.hex }} />
+              <div className="color-swatch" style={swatchStyle(c.hex)} />
               <strong>{c.name}</strong>
               <span>{c.hex}</span>
               <span>Qty: {c.quantity}</span>
@@ -128,7 +129,7 @@ export default function InventoryPage() {
             </label>
             <label>
               Color
-              <ColorWheelPicker hex={form.hex} onChange={(hex) => setForm((f) => ({ ...f, hex }))} />
+              <ColorPicker hex={form.hex} onChange={(hex) => setForm((f) => ({ ...f, hex }))} />
             </label>
             <label>
               Quantity

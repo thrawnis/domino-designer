@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { Design, DominoColor, DominoPlacement } from '../types';
+import { swatchStyle } from '../utils/swatchStyle';
 
 const CELL_W = 16;
 const CELL_H = 32;
@@ -219,7 +220,7 @@ export default function DesignEditorPage() {
               className={`palette-item ${selectedColorId === c.id ? 'selected' : ''}`}
               onClick={() => setSelectedColorId(c.id === selectedColorId ? null : c.id)}
             >
-              <div className="palette-swatch" style={{ background: c.hex }} />
+              <div className="palette-swatch" style={swatchStyle(c.hex)} />
               <div>
                 <div>{c.name}</div>
                 <div style={{ fontSize: '0.8rem', color: '#667' }}>{remaining(c.id)} remaining</div>
@@ -256,7 +257,7 @@ export default function DesignEditorPage() {
                   top: p.y * CELL_H,
                   width: CELL_W,
                   height: CELL_H,
-                  background: p.hex,
+                  ...swatchStyle(p.hex),
                   transform: `rotate(${p.rotation}deg)`,
                   transformOrigin: 'center',
                   zIndex: p.zIndex,

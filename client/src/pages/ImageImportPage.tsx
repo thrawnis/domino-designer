@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { Design, GridCell, ImportGridResult } from '../types';
+import { swatchStyle } from '../utils/swatchStyle';
 
 const PREVIEW_CELL = 6;
 
@@ -27,7 +28,7 @@ function GridPreview({ cells, gridWidth, gridHeight }: { cells: GridCell[]; grid
             top: c.y * PREVIEW_CELL,
             width: PREVIEW_CELL,
             height: PREVIEW_CELL,
-            background: c.hex,
+            ...swatchStyle(c.hex),
           }}
         />
       ))}

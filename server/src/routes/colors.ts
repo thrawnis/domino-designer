@@ -8,9 +8,10 @@ import { asyncHandler, HttpError } from '../middleware/errorHandler';
 const router = Router();
 router.use(requireAuth);
 
+// 6-digit RGB, or 8-digit RGBA (alpha channel) for transparent/translucent dominoes.
 const hexSchema = z
   .string()
-  .regex(/^#[0-9a-fA-F]{6}$/, 'Color must be a hex value like #A1B2C3');
+  .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, 'Color must be a hex value like #A1B2C3 or #A1B2C380');
 
 const colorInputSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(64),

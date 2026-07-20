@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Wheel from '@uiw/react-color-wheel';
 import { hexToHsva, hsvaToHex, hsvaToHexa, HsvaColor } from '@uiw/color-convert';
-import { SWATCH_PALETTE, TRANSPARENT_HEX } from '../utils/colorPalette';
+import { GRAYSCALE_SWATCHES, HUE_SWATCH_ROWS, TRANSPARENT_HEX } from '../utils/colorPalette';
 import { swatchStyle } from '../utils/swatchStyle';
 
 interface Props {
@@ -61,27 +61,34 @@ export default function ColorPicker({ hex, onChange }: Props) {
   );
 }
 
+function Swatch({ hex, current, onChange }: { hex: string; current: string; onChange: (hex: string) => void }) {
+  return (
+    <button
+      type="button"
+      className={`swatch-cell ${samePreview(current, hex) ? 'selected' : ''}`}
+      style={swatchStyle(hex)}
+      title={hex}
+      aria-label={hex}
+      onClick={() => onChange(hex)}
+    />
+  );
+}
+
 function SwatchGrid({ hex, onChange }: Props) {
   return (
-    <div className="swatch-grid">
-      <button
-        type="button"
-        className={`swatch-cell ${samePreview(hex, TRANSPARENT_HEX) ? 'selected' : ''}`}
-        style={swatchStyle(TRANSPARENT_HEX)}
-        title="Transparent"
-        aria-label="Transparent"
-        onClick={() => onChange(TRANSPARENT_HEX)}
-      />
-      {SWATCH_PALETTE.map((swatchHex) => (
-        <button
-          key={swatchHex}
-          type="button"
-          className={`swatch-cell ${samePreview(hex, swatchHex) ? 'selected' : ''}`}
-          style={swatchStyle(swatchHex)}
-          title={swatchHex}
-          aria-label={swatchHex}
-          onClick={() => onChange(swatchHex)}
-        />
+    <div className="swatch-picker">
+      <div className="swatch-row swatch-row-lead">
+        <Swatch hex={TRANSPARENT_HEX} current={hex} onChange={onChange} />
+        {GRAYSCALE_SWATCHES.map((swatchHex) => (
+          <Swatch key={swatchHex} hex={swatchHex} current={hex} onChange={onChange} />
+        ))}
+      </div>
+      {HUE_SWATCH_ROWS.map((row, i) => (
+        <div key={i} className="swatch-row">
+          {row.map((swatchHex) => (
+            <Swatch key={swatchHex} hex={swatchHex} current={hex} onChange={onChange} />
+          ))}
+        </div>
       ))}
     </div>
   );

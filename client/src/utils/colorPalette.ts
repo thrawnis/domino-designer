@@ -18,10 +18,12 @@ const GRAYSCALE = [100, 87, 74, 61, 48, 35, 22, 9, 0];
 /** Sentinel hex for a fully transparent domino (alpha channel = 00). */
 export const TRANSPARENT_HEX = '#00000000';
 
-/** A broad, evenly-distributed swatch grid covering the hue wheel at several
- * shades, plus a grayscale row (including true black and white) — a quick-pick
- * alternative to the full color wheel. */
-export const SWATCH_PALETTE: string[] = [
-  ...GRAYSCALE.map((l) => hslToHex(0, 0, l)),
-  ...LIGHTNESS_STEPS.flatMap((l) => HUES.map((h) => hslToHex(h, 65, l))),
-];
+export const HUE_COUNT = HUES.length;
+
+/** A single-row gradient strip from white to black. */
+export const GRAYSCALE_SWATCHES: string[] = GRAYSCALE.map((l) => hslToHex(0, 0, l));
+
+/** Rows of swatches, each row sweeping smoothly across the hue wheel at one
+ * lightness level, rows ordered light -> dark, so the whole block reads as a
+ * continuous 2D gradient rather than a shuffled grid. */
+export const HUE_SWATCH_ROWS: string[][] = LIGHTNESS_STEPS.map((l) => HUES.map((h) => hslToHex(h, 65, l)));

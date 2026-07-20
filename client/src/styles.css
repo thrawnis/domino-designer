@@ -282,6 +282,44 @@ select {
   margin-top: 0.5rem;
 }
 
+.modal-wide {
+  width: min(700px, 90vw);
+}
+
+.counts-table-scroll {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.counts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.counts-table th,
+.counts-table td {
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.counts-table .palette-swatch {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.counts-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+}
+
 .design-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

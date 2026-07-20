@@ -3,6 +3,7 @@ import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { Design, DominoColor, DominoPlacement } from '../types';
 import { swatchStyle } from '../utils/swatchStyle';
+import ColorBreakdownModal from '../components/ColorBreakdownModal';
 
 const CELL_W = 16;
 const CELL_H = 32;
@@ -34,6 +35,7 @@ export default function DesignEditorPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
   const dragRef = useRef<{ localId: string; offsetX: number; offsetY: number; moved: boolean } | null>(
     null
   );
@@ -192,6 +194,15 @@ export default function DesignEditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  useEffect(() => {
+    if (!breakdownOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setBreakdownOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [breakdownOpen]);
+
   // Warn on browser-level navigation (refresh, tab close) with unsaved changes.
   useEffect(() => {
     if (!dirty) return;
@@ -252,6 +263,9 @@ export default function DesignEditorPage() {
         <button className="secondary" onClick={deleteSelected} disabled={!selectedPlacementId}>
           Delete (Del)
         </button>
+        <button className="secondary" onClick={() => setBreakdownOpen(true)}>
+          Color counts
+        </button>
         <button className="secondary" onClick={() => navigate('/designs')}>
           Back
         </button>
@@ -260,6 +274,9 @@ export default function DesignEditorPage() {
         </button>
       </div>
       {error && <p className="form-error">{error}</p>}
+      {breakdownOpen && (
+        <ColorBreakdownModal placements={placements} colors={colors} onClose={() => setBreakdownOpen(false)} />
+      )}
 
       <div className="editor-layout">
         <div className="palette-panel card">
@@ -274,7 +291,9 @@ export default function DesignEditorPage() {
               <div className="palette-swatch" style={swatchStyle(c.hex)} />
               <div>
                 <div>{c.name}</div>
-                <div style={{ fontSize: '0.8rem', color: '#667' }}>{remaining(c.id)} remaining</div>
+                <div style={{ fontSize: '0.8rem', color: '#667' }}>
+                  {usedByColor.get(c.id) ?? 0} used &middot; {remaining(c.id)} remaining
+                </div>
               </div>
             </div>
           ))}

@@ -25,8 +25,10 @@ roughly 1:2 width:height tile) accordingly.
   designs combined. If you build multiple designs from the same physical inventory,
   you're responsible for not double-booking dominoes across designs — this isn't
   enforced globally yet.
-- Image import grid is capped at 200x200 cells (40,000 dominoes) per request to keep
-  processing fast; ask if you need larger.
+- Image import is capped at 12,000 dominoes total per design (each domino is an
+  interactive element in the editor); the importer keeps the image's proportions
+  by deriving the height from the width and the 1:2 domino shape. Ask if you need
+  larger designs.
 
 ## Local development
 
@@ -96,7 +98,10 @@ npx prisma migrate dev
    (or `http://app:4000` if you run `cloudflared` as a container on the same
    Docker network). Cloudflare terminates TLS at its edge and forwards
    `X-Forwarded-Proto: https` to the tunnel, which the app already trusts
-   (`trust proxy` is enabled) to mark cookies `Secure` correctly.
+   (`trust proxy` is enabled) to mark cookies `Secure` correctly. If you chain
+   **both** Cloudflare Tunnel and nginx in front of the app (two proxy hops),
+   set `TRUST_PROXY_HOPS=2` in `.env` so login rate limiting keys on the real
+   client IP instead of the proxy's.
 
    One thing to be aware of: exposing the app publicly via Cloudflare Tunnel means
    the login/register endpoints are reachable from the internet. Login attempts

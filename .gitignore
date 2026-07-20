@@ -9,3 +9,5 @@ server/prisma/dev.db
 coverage/
 .vite/
 *.tsbuildinfo
+# Vite build output (client bundle emitted here for the server to serve)
+server/public/

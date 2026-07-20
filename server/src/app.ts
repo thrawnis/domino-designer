@@ -18,7 +18,7 @@ const PgSession = connectPgSimple(session);
 export function createApp() {
   const app = express();
 
-  app.set('trust proxy', 1);
+  app.set('trust proxy', env.trustProxyHops);
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -69,10 +69,12 @@ export function createApp() {
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
+  // Unknown API routes should return JSON, not fall through to the SPA's HTML.
+  app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
+
   const clientDist = path.join(__dirname, '..', 'public');
   app.use(express.static(clientDist));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
+  app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 

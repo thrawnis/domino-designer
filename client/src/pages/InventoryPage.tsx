@@ -28,6 +28,15 @@ export default function InventoryPage() {
     refresh();
   }, []);
 
+  useEffect(() => {
+    if (!modalOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setModalOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modalOpen]);
+
   async function refresh() {
     setLoading(true);
     const res = await api.get<{ colors: DominoColor[] }>('/colors');
@@ -115,9 +124,17 @@ export default function InventoryPage() {
       )}
 
       {modalOpen && (
-        <div className="modal-backdrop" onClick={() => setModalOpen(false)}>
-          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}>
-            <h2>{form.id ? 'Edit color' : 'Add color'}</h2>
+        <div className="modal-backdrop">
+          <form className="modal" onSubmit={onSubmit}>
+            <button
+              type="button"
+              className="modal-close"
+              aria-label="Close"
+              onClick={() => setModalOpen(false)}
+            >
+              ×
+            </button>
+            <h2 style={{ paddingRight: '2rem' }}>{form.id ? 'Edit color' : 'Add color'}</h2>
             <label>
               Name
               <input

@@ -229,6 +229,7 @@ select {
 }
 
 .modal {
+  position: relative;
   background: var(--panel);
   border-radius: 10px;
   padding: 1.5rem;
@@ -238,6 +239,33 @@ select {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.2rem;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.modal-close:hover {
+  background: #eef1fb;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-right: 2.5rem;
 }
 
 .modal label {
@@ -338,8 +366,10 @@ select {
 .import-preview {
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: auto;
   background: white;
+  max-width: 100%;
+  height: auto;
+  display: block;
 }
 
 .warning-banner {

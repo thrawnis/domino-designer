@@ -18,6 +18,15 @@ export default function DesignsListPage() {
     refresh();
   }, []);
 
+  useEffect(() => {
+    if (!modalOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setModalOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modalOpen]);
+
   async function refresh() {
     setLoading(true);
     const res = await api.get<{ designs: Design[] }>('/designs');
@@ -74,9 +83,17 @@ export default function DesignsListPage() {
       )}
 
       {modalOpen && (
-        <div className="modal-backdrop" onClick={() => setModalOpen(false)}>
-          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={onCreate}>
-            <h2>New design</h2>
+        <div className="modal-backdrop">
+          <form className="modal" onSubmit={onCreate}>
+            <button
+              type="button"
+              className="modal-close"
+              aria-label="Close"
+              onClick={() => setModalOpen(false)}
+            >
+              ×
+            </button>
+            <h2 style={{ paddingRight: '2rem' }}>New design</h2>
             <label>
               Name
               <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={128} />

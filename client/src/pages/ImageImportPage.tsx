@@ -1,10 +1,13 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { Design, GridCell, ImportGridResult } from '../types';
-import { swatchStyle } from '../utils/swatchStyle';
 
-const PREVIEW_CELL = 6;
+// Dominoes stand ~1 wide : 2 tall, so preview cells are drawn tall to match how
+// the design will actually look (and how the editor renders them).
+const CELL_ASPECT = 2;
+const MAX_CELLS = 12000;
+const MAX_DIM = 200;
 
 interface PreviewResponse {
   gridWidth: number;
@@ -13,33 +16,49 @@ interface PreviewResponse {
   dithered: ImportGridResult;
 }
 
-function GridPreview({ cells, gridWidth, gridHeight }: { cells: GridCell[]; gridWidth: number; gridHeight: number }) {
+/** Draws the mosaic to a single canvas (one element, not one div per cell) so
+ * large grids don't create tens of thousands of DOM nodes. */
+function PreviewCanvas({ cells, gridWidth, gridHeight }: { cells: GridCell[]; gridWidth: number; gridHeight: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const cw = Math.max(1, Math.min(6, Math.floor(260 / gridWidth)));
+  const ch = cw * CELL_ASPECT;
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Checkerboard so transparent/translucent dominoes read as transparent.
+    const check = 8;
+    for (let y = 0; y < canvas.height; y += check) {
+      for (let x = 0; x < canvas.width; x += check) {
+        ctx.fillStyle = ((x / check + y / check) % 2 === 0) ? '#ffffff' : '#cccccc';
+        ctx.fillRect(x, y, check, check);
+      }
+    }
+    for (const c of cells) {
+      ctx.fillStyle = c.hex;
+      ctx.fillRect(c.x * cw, c.y * ch, cw, ch);
+    }
+  }, [cells, cw, ch]);
+
   return (
-    <div
+    <canvas
+      ref={ref}
       className="import-preview"
-      style={{ width: gridWidth * PREVIEW_CELL, height: gridHeight * PREVIEW_CELL, position: 'relative' }}
-    >
-      {cells.map((c) => (
-        <div
-          key={`${c.x}-${c.y}`}
-          style={{
-            position: 'absolute',
-            left: c.x * PREVIEW_CELL,
-            top: c.y * PREVIEW_CELL,
-            width: PREVIEW_CELL,
-            height: PREVIEW_CELL,
-            ...swatchStyle(c.hex),
-          }}
-        />
-      ))}
-    </div>
+      width={gridWidth * cw}
+      height={gridHeight * ch}
+    />
   );
 }
 
 export default function ImageImportPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [gridWidth, setGridWidth] = useState(40);
-  const [gridHeight, setGridHeight] = useState(40);
+  const [imgAspect, setImgAspect] = useState<number | null>(null);
+  const [dominoesWide, setDominoesWide] = useState(40);
+  const [keepAspect, setKeepAspect] = useState(true);
+  const [manualHeight, setManualHeight] = useState(40);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [choice, setChoice] = useState<'nearest' | 'dithered' | null>(null);
   const [designName, setDesignName] = useState('');
@@ -48,9 +67,39 @@ export default function ImageImportPage() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Derive height from the image's aspect ratio and the 1:2 domino shape so the
+  // physical result isn't stretched. imgAspect is width/height of the source.
+  const gridHeight = useMemo(() => {
+    if (keepAspect && imgAspect) {
+      return Math.max(1, Math.min(MAX_DIM, Math.round(dominoesWide / imgAspect / CELL_ASPECT)));
+    }
+    return manualHeight;
+  }, [keepAspect, imgAspect, dominoesWide, manualHeight]);
+
+  const totalCells = dominoesWide * gridHeight;
+  const tooManyCells = totalCells > MAX_CELLS;
+
+  function onFileChange(f: File | null) {
+    setFile(f);
+    setImgAspect(null);
+    setPreview(null);
+    setChoice(null);
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth && img.naturalHeight) {
+        setImgAspect(img.naturalWidth / img.naturalHeight);
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
+  }
+
   async function onGeneratePreview(e: FormEvent) {
     e.preventDefault();
-    if (!file) return;
+    if (!file || tooManyCells) return;
     setError(null);
     setLoading(true);
     setPreview(null);
@@ -58,7 +107,7 @@ export default function ImageImportPage() {
     try {
       const form = new FormData();
       form.append('image', file);
-      form.append('gridWidth', String(gridWidth));
+      form.append('gridWidth', String(dominoesWide));
       form.append('gridHeight', String(gridHeight));
       const res = await api.postForm<PreviewResponse>('/designs/import-preview', form);
       setPreview(res);
@@ -111,22 +160,49 @@ export default function ImageImportPage() {
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
             required
           />
         </label>
         <label>
-          Grid width
-          <input type="number" min={1} max={200} value={gridWidth} onChange={(e) => setGridWidth(Number(e.target.value))} />
+          Dominoes wide
+          <input
+            type="number"
+            min={1}
+            max={MAX_DIM}
+            value={dominoesWide}
+            onChange={(e) => setDominoesWide(Number(e.target.value))}
+          />
         </label>
         <label>
-          Grid height
-          <input type="number" min={1} max={200} value={gridHeight} onChange={(e) => setGridHeight(Number(e.target.value))} />
+          Dominoes tall
+          <input
+            type="number"
+            min={1}
+            max={MAX_DIM}
+            value={gridHeight}
+            disabled={keepAspect && !!imgAspect}
+            onChange={(e) => setManualHeight(Number(e.target.value))}
+          />
         </label>
-        <button type="submit" disabled={!file || loading}>
+        <label style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <input type="checkbox" checked={keepAspect} onChange={(e) => setKeepAspect(e.target.checked)} />
+          Keep image proportions
+        </label>
+        <button type="submit" disabled={!file || loading || tooManyCells}>
           {loading ? 'Processing...' : 'Generate preview'}
         </button>
       </form>
+
+      <p className="hint" style={{ marginTop: '0.5rem' }}>
+        Result: {dominoesWide} × {gridHeight} = {totalCells.toLocaleString()} dominoes.
+        {keepAspect && !imgAspect && ' Choose an image to auto-fit the height to its proportions.'}
+      </p>
+      {tooManyCells && (
+        <p className="form-error">
+          That's more than {MAX_CELLS.toLocaleString()} dominoes. Reduce the width or height.
+        </p>
+      )}
 
       {error && <p className="form-error">{error}</p>}
 
@@ -140,7 +216,7 @@ export default function ImageImportPage() {
                   Ran out of some colors&apos; inventory partway through; substitute colors were used.
                 </p>
               )}
-              <GridPreview cells={preview.nearest.cells} gridWidth={preview.gridWidth} gridHeight={preview.gridHeight} />
+              <PreviewCanvas cells={preview.nearest.cells} gridWidth={preview.gridWidth} gridHeight={preview.gridHeight} />
               <label style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem' }}>
                 <input type="radio" name="choice" checked={choice === 'nearest'} onChange={() => setChoice('nearest')} />
                 Use this version
@@ -153,7 +229,7 @@ export default function ImageImportPage() {
                   Ran out of some colors&apos; inventory partway through; substitute colors were used.
                 </p>
               )}
-              <GridPreview cells={preview.dithered.cells} gridWidth={preview.gridWidth} gridHeight={preview.gridHeight} />
+              <PreviewCanvas cells={preview.dithered.cells} gridWidth={preview.gridWidth} gridHeight={preview.gridHeight} />
               <label style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem' }}>
                 <input type="radio" name="choice" checked={choice === 'dithered'} onChange={() => setChoice('dithered')} />
                 Use this version

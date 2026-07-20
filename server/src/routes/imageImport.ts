@@ -21,10 +21,17 @@ const upload = multer({
   },
 });
 
-const querySchema = z.object({
-  gridWidth: z.coerce.number().int().min(1).max(200),
-  gridHeight: z.coerce.number().int().min(1).max(200),
-});
+// Each domino becomes an interactive element in the editor, so cap the total
+// cell count (not just each dimension) to keep the editor responsive.
+const MAX_IMPORT_CELLS = 12000;
+const querySchema = z
+  .object({
+    gridWidth: z.coerce.number().int().min(1).max(200),
+    gridHeight: z.coerce.number().int().min(1).max(200),
+  })
+  .refine((v) => v.gridWidth * v.gridHeight <= MAX_IMPORT_CELLS, {
+    message: `Grid is too large; at most ${MAX_IMPORT_CELLS} dominoes total`,
+  });
 
 router.post(
   '/import-preview',

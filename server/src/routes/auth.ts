@@ -49,7 +49,7 @@ const ARGON2_OPTIONS = {
 router.post(
   '/register',
   authLimiter,
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req, res, next) => {
     const { username, password } = registerSchema.parse(req.body);
 
     const existing = await prisma.user.findUnique({ where: { username } });
@@ -63,8 +63,10 @@ router.post(
       select: { id: true, username: true, createdAt: true },
     });
 
+    // Regenerate the session to prevent session fixation. The callback runs
+    // outside the async chain, so surface errors via next() rather than throw.
     req.session.regenerate((err) => {
-      if (err) throw err;
+      if (err) return next(err);
       req.session.userId = user.id;
       res.status(201).json({ user });
     });
@@ -74,7 +76,7 @@ router.post(
 router.post(
   '/login',
   authLimiter,
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req, res, next) => {
     const { username, password } = loginSchema.parse(req.body);
 
     const user = await prisma.user.findUnique({ where: { username } });
@@ -89,8 +91,10 @@ router.post(
       throw new HttpError(401, 'Invalid username or password');
     }
 
+    // Regenerate the session to prevent session fixation. The callback runs
+    // outside the async chain, so surface errors via next() rather than throw.
     req.session.regenerate((err) => {
-      if (err) throw err;
+      if (err) return next(err);
       req.session.userId = user.id;
       res.json({ user: { id: user.id, username: user.username, createdAt: user.createdAt } });
     });

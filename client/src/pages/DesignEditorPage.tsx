@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { Design, DominoColor, DominoPlacement } from '../types';
 import { swatchStyle } from '../utils/swatchStyle';
@@ -33,8 +33,20 @@ export default function DesignEditorPage() {
   const [snap, setSnap] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dragRef = useRef<{ localId: string; offsetX: number; offsetY: number } | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const dragRef = useRef<{ localId: string; offsetX: number; offsetY: number; moved: boolean } | null>(
+    null
+  );
+  // Set when a pointer interaction started on a tile, so the trailing click
+  // event doesn't also drop a new domino on the canvas underneath.
+  const suppressNextCanvasClick = useRef(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  const currentHexById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of colors) map.set(c.id, c.hex);
+    return map;
+  }, [colors]);
 
   useEffect(() => {
     if (!id) return;
@@ -71,7 +83,7 @@ export default function DesignEditorPage() {
     (colorId: string) => {
       const color = colors.find((c) => c.id === colorId);
       if (!color) return 0;
-      return color.quantity - (usedByColor.get(colorId) ?? 0);
+      return Math.max(0, color.quantity - (usedByColor.get(colorId) ?? 0));
     },
     [colors, usedByColor]
   );
@@ -100,10 +112,16 @@ export default function DesignEditorPage() {
         zIndex: prev.length,
       },
     ]);
+    setDirty(true);
     setError(null);
   }
 
   function onCanvasClick(e: React.MouseEvent) {
+    // A click that originated on a tile (select/drag) shouldn't also place one.
+    if (suppressNextCanvasClick.current) {
+      suppressNextCanvasClick.current = false;
+      return;
+    }
     if (!design || !canvasRef.current || !selectedColorId) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / CELL_W;
@@ -113,12 +131,13 @@ export default function DesignEditorPage() {
 
   function onTilePointerDown(e: React.PointerEvent, p: LocalPlacement) {
     e.stopPropagation();
+    suppressNextCanvasClick.current = true;
     (e.target as Element).setPointerCapture(e.pointerId);
     setSelectedPlacementId(p.localId);
     const rect = canvasRef.current!.getBoundingClientRect();
     const pointerGx = (e.clientX - rect.left + canvasRef.current!.scrollLeft) / CELL_W;
     const pointerGy = (e.clientY - rect.top + canvasRef.current!.scrollTop) / CELL_H;
-    dragRef.current = { localId: p.localId, offsetX: pointerGx - p.x, offsetY: pointerGy - p.y };
+    dragRef.current = { localId: p.localId, offsetX: pointerGx - p.x, offsetY: pointerGy - p.y, moved: false };
   }
 
   function onTilePointerMove(e: React.PointerEvent) {
@@ -127,9 +146,11 @@ export default function DesignEditorPage() {
     const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / CELL_W - dragRef.current.offsetX;
     const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / CELL_H - dragRef.current.offsetY;
     const { localId } = dragRef.current;
+    dragRef.current.moved = true;
     setPlacements((prev) =>
       prev.map((p) => (p.localId === localId ? { ...p, x: snapValue(gx), y: snapValue(gy) } : p))
     );
+    setDirty(true);
   }
 
   function onTilePointerUp() {
@@ -143,17 +164,24 @@ export default function DesignEditorPage() {
         p.localId === selectedPlacementId ? { ...p, rotation: (p.rotation + 90) % 360 } : p
       )
     );
+    setDirty(true);
   }
 
   function deleteSelected() {
     if (!selectedPlacementId) return;
     setPlacements((prev) => prev.filter((p) => p.localId !== selectedPlacementId));
     setSelectedPlacementId(null);
+    setDirty(true);
   }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!selectedPlacementId) return;
+      // Don't hijack Backspace/Delete/R while typing in a form field.
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
       if (e.key === 'r' || e.key === 'R') rotateSelected();
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
@@ -163,6 +191,28 @@ export default function DesignEditorPage() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   });
+
+  // Warn on browser-level navigation (refresh, tab close) with unsaved changes.
+  useEffect(() => {
+    if (!dirty) return;
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  // Warn on in-app navigation (nav bar, Back button) with unsaved changes.
+  const blocker = useBlocker(dirty && !saving);
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    if (window.confirm('You have unsaved changes. Leave this design without saving?')) {
+      blocker.proceed();
+    } else {
+      blocker.reset();
+    }
+  }, [blocker]);
 
   async function onSave() {
     if (!design) return;
@@ -178,6 +228,7 @@ export default function DesignEditorPage() {
           zIndex: p.zIndex,
         })),
       });
+      setDirty(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save design');
     } finally {
@@ -204,8 +255,8 @@ export default function DesignEditorPage() {
         <button className="secondary" onClick={() => navigate('/designs')}>
           Back
         </button>
-        <button onClick={onSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
+        <button onClick={onSave} disabled={saving || !dirty}>
+          {saving ? 'Saving...' : dirty ? 'Save changes' : 'Saved'}
         </button>
       </div>
       {error && <p className="form-error">{error}</p>}
@@ -257,7 +308,7 @@ export default function DesignEditorPage() {
                   top: p.y * CELL_H,
                   width: CELL_W,
                   height: CELL_H,
-                  ...swatchStyle(p.hex),
+                  ...swatchStyle(currentHexById.get(p.colorId) ?? p.hex),
                   transform: `rotate(${p.rotation}deg)`,
                   transformOrigin: 'center',
                   zIndex: p.zIndex,

@@ -38,6 +38,23 @@ touch. The editor and image importer both space placed dominoes by a gap of
 a chain ("one in front of the other") and between adjacent parallel toppling rows.
 This is a fixed default, not currently user-adjustable.
 
+## Image import algorithms
+
+The importer (`server/src/services/imageProcessing.ts`) offers 8 algorithms to
+compare side by side, up to 6 at a time:
+
+- **Nearest color** — no dithering, flat blocks of the closest available color.
+- **Floyd–Steinberg, Atkinson, Stucki, Sierra, Burkes, Jarvis-Judice-Ninke** — error-diffusion
+  dithering algorithms (increasingly wide diffusion kernels, from Atkinson's
+  narrow/high-contrast to Jarvis-Judice-Ninke's wide/smooth).
+- **Bayer (ordered)** — a fixed crosshatch threshold pattern instead of diffused
+  noise; more predictable/repeatable to build by hand than the diffusion algorithms.
+
+Any algorithm can also be run with **perceptual (Lab-space, CIE76) color
+distance** instead of plain RGB Euclidean distance, which more closely matches
+how humans perceive color similarity — helpful with a small/muted domino palette
+where RGB distance sometimes picks a visually-wrong nearest color.
+
 ## Known v1 limitations
 
 - Inventory quantity remaining is tracked **per design**, not across all of your

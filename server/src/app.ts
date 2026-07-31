@@ -64,8 +64,10 @@ export function createApp() {
   app.use('/api', requireCsrfHeader);
   app.use('/api/auth', authRoutes);
   app.use('/api/colors', colorRoutes);
-  app.use('/api/designs', designRoutes);
+  // Mounted before designRoutes: designRoutes' GET /:id would otherwise
+  // greedily match /import-algorithms and /import-preview as a design id.
   app.use('/api/designs', imageImportRoutes);
+  app.use('/api/designs', designRoutes);
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 

@@ -45,3 +45,9 @@ export interface ImportGridResult {
   cells: GridCell[];
   ranOutOfInventory: boolean;
 }
+
+export interface AlgorithmInfo {
+  id: string;
+  label: string;
+  description: string;
+}

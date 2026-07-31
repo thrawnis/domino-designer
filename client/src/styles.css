@@ -397,7 +397,7 @@ select {
 
 .import-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
 }
 
@@ -408,6 +408,27 @@ select {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+.algorithm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.algorithm-option {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.algorithm-option input {
+  margin-top: 0.2rem;
 }
 
 .warning-banner {

@@ -75,9 +75,30 @@ export function createApp() {
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 
   const clientDist = path.join(__dirname, '..', 'public');
-  app.use(express.static(clientDist));
+  app.use(
+    express.static(clientDist, {
+      // Never auto-serve index.html here — it gets its own no-cache headers below.
+      index: false,
+      // Every file Vite emits here (under assets/) has a content hash in its
+      // filename, so a given filename's content never changes — safe to cache
+      // "forever". (maxAge/immutable are passed straight to the `send`
+      // module, which sets Cache-Control itself — setting the header manually
+      // via setHeaders() gets overwritten by send's own default afterwards.)
+      maxAge: '1y',
+      immutable: true,
+    })
+  );
   app.get('*', (_req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
+    // index.html references the current deploy's hashed asset filenames, so it
+    // must never be cached — a stale cached copy would keep loading old JS
+    // that can post request shapes the current server no longer accepts (this
+    // happened in practice: an old bundle predating a required form field).
+    // cacheControl:false stops sendFile from setting its own default
+    // Cache-Control, so the explicit one in `headers` isn't overwritten.
+    res.sendFile(path.join(clientDist, 'index.html'), {
+      cacheControl: false,
+      headers: { 'Cache-Control': 'no-cache' },
+    });
   });
 
   app.use(errorHandler);

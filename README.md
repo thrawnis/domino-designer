@@ -115,6 +115,15 @@ npx prisma migrate dev
    persistence. On startup the app container automatically runs
    `prisma migrate deploy` before starting the server.
 
+   `index.html` is served with `Cache-Control: no-cache` and the hashed
+   `assets/*.js`/`*.css` files with a 1-year immutable cache, so a browser tab
+   left open across a redeploy fetches fresh HTML (and thus the current JS)
+   on its next reload rather than keeping an old bundle indefinitely — but if
+   you put a CDN or aggressive-caching proxy in front (e.g. Cloudflare's
+   "Cache Everything"), make sure it also respects `Cache-Control` rather
+   than caching `/` on its own terms, or you can end up with an old bundle
+   talking to a newer server after a deploy.
+
 3. **Network exposure**: `docker-compose.yml` publishes port 4000 on all
    interfaces (`4000:4000`), so it's reachable from any machine on your LAN, your
    nginx LXC, and a Cloudflare Tunnel (`cloudflared`) pointed at the Docker host —

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, ApiError } from '../api/client';
+import { api, describeApiError } from '../api/client';
 import { Design } from '../types';
 
 export default function DesignsListPage() {
@@ -42,7 +42,7 @@ export default function DesignsListPage() {
       const res = await api.post<{ design: Design }>('/designs', { name, gridWidth, gridHeight });
       navigate(`/designs/${res.design.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create design');
+      setError(describeApiError(err, 'Failed to create design'));
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
-import { api, ApiError } from '../api/client';
+import { api, describeApiError } from '../api/client';
 import { Design, DominoColor, DominoPlacement } from '../types';
 import { swatchStyle } from '../utils/swatchStyle';
 import ColorBreakdownModal from '../components/ColorBreakdownModal';
@@ -249,7 +249,7 @@ export default function DesignEditorPage() {
       });
       setDirty(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save design');
+      setError(describeApiError(err, 'Failed to save design'));
     } finally {
       setSaving(false);
     }

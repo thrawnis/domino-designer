@@ -4,6 +4,29 @@ export class ApiError extends Error {
   }
 }
 
+interface ZodFlattenedError {
+  formErrors?: string[];
+  fieldErrors?: Record<string, string[] | undefined>;
+}
+
+/**
+ * Extracts a human-readable message from an error, preferring the specific
+ * per-field reason (e.g. "Password must be at least 10 characters") over the
+ * server's generic top-level message (e.g. "Invalid input"), which is all
+ * `err.message` alone gives you for a Zod validation failure.
+ */
+export function describeApiError(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    const details = err.details as ZodFlattenedError | undefined;
+    const messages = [
+      ...(details?.formErrors ?? []),
+      ...Object.values(details?.fieldErrors ?? {}).flatMap((m) => m ?? []),
+    ];
+    return messages.length > 0 ? messages.join(' ') : err.message;
+  }
+  return fallback;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...options,

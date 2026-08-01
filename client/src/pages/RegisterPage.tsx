@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { describeApiError } from '../api/client';
 
 export default function RegisterPage() {
   const { user, register } = useAuth();
@@ -25,7 +26,7 @@ export default function RegisterPage() {
       await register(username, password);
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      setError(describeApiError(err, 'Registration failed'));
     } finally {
       setSubmitting(false);
     }

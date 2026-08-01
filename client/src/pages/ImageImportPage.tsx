@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, ApiError } from '../api/client';
+import { api, describeApiError } from '../api/client';
 import { AlgorithmInfo, Design, GridCell, ImportGridResult } from '../types';
 import { PITCH_ASPECT, PITCH_X_RATIO, PITCH_Y_RATIO } from '../utils/dominoSpec';
 
@@ -143,7 +143,7 @@ export default function ImageImportPage() {
       const res = await api.postForm<PreviewResponse>('/designs/import-preview', form);
       setPreview(res);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to process image');
+      setError(describeApiError(err, 'Failed to process image'));
     } finally {
       setLoading(false);
     }
@@ -172,7 +172,7 @@ export default function ImageImportPage() {
       });
       navigate(`/designs/${designRes.design.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create design');
+      setError(describeApiError(err, 'Failed to create design'));
     } finally {
       setCreating(false);
     }

@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { describeApiError } from '../api/client';
 
 export default function LoginPage() {
   const { user, login } = useAuth();
@@ -20,7 +21,7 @@ export default function LoginPage() {
       await login(username, password);
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(describeApiError(err, 'Login failed'));
     } finally {
       setSubmitting(false);
     }

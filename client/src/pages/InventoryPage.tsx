@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { api, ApiError } from '../api/client';
+import { api, describeApiError } from '../api/client';
 import { DominoColor } from '../types';
 import ColorPicker from '../components/ColorPicker';
 import { swatchStyle } from '../utils/swatchStyle';
@@ -74,7 +74,7 @@ export default function InventoryPage() {
       setModalOpen(false);
       await refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save color');
+      setError(describeApiError(err, 'Failed to save color'));
     } finally {
       setSaving(false);
     }
@@ -86,7 +86,7 @@ export default function InventoryPage() {
       await api.del(`/colors/${color.id}`);
       await refresh();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Failed to delete color');
+      alert(describeApiError(err, 'Failed to delete color'));
     }
   }
 

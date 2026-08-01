@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
-import { api, ApiError } from '../api/client';
+import { api, describeApiError } from '../api/client';
 import { User } from '../types';
 
 interface AuthContextValue {
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.post<{ user: User }>('/auth/login', { username, password });
       setUser(res.user);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Login failed');
+      setError(describeApiError(e, 'Login failed'));
       throw e;
     }
   }, []);
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.post<{ user: User }>('/auth/register', { username, password });
       setUser(res.user);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Registration failed');
+      setError(describeApiError(e, 'Registration failed'));
       throw e;
     }
   }, []);

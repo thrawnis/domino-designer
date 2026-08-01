@@ -145,7 +145,7 @@ npx prisma migrate dev
    `RUN --mount=type=cache` syntax at all and fails outright. If you're not
    using `rebuild.sh`, build manually with:
    ```bash
-   docker buildx build -t domino-designer-app:latest --load .
+   docker buildx build --tag domino-designer-app:latest --load .
    docker compose up -d
    ```
    (`docker-compose.yml` pins `app`'s image name to `domino-designer-app:latest`

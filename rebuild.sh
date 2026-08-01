@@ -42,8 +42,15 @@ fi
 # resolution instead, which has proven reliable here. The image name below
 # must match docker-compose.yml's `app.image` so Compose picks up exactly
 # this build instead of trying (and failing) to build it again itself.
+# Use --tag (not -t): the -t shorthand has failed here with "unknown
+# shorthand flag: 't' in -t" from the *root* docker command, meaning it
+# wasn't reaching buildx's own flag parser at all in this exact invocation
+# context, even though `docker buildx version` and manual runs worked fine.
+# Confirmed --tag avoids it: a manual `docker buildx build --tag ... --load`
+# run completed successfully. Root cause not fully understood; --tag is a
+# verified-working, zero-downside substitute, so use it.
 echo "==> Building app image"
-BUILDX_ARGS=(build -t domino-designer-app:latest --load .)
+BUILDX_ARGS=(build --tag domino-designer-app:latest --load "$REPO_DIR")
 if [ "$PULL_BASE_IMAGES" = true ]; then
   echo "==> (--pull-base-images: also re-checking base images against the registry)"
   BUILDX_ARGS+=(--pull)

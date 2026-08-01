@@ -13,7 +13,13 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
+    // Some OS/browser combinations don't have a registered MIME type for
+    // .heic/.heif and send application/octet-stream instead — fall back to
+    // the extension for those. Anything that still isn't actually a decodable
+    // image gets a clean error later, from imageToPixelGrid's own checks.
+    const isImageMime = file.mimetype.startsWith('image/');
+    const isHeicExtension = /\.(heic|heif)$/i.test(file.originalname);
+    if (!isImageMime && !isHeicExtension) {
       cb(new HttpError(400, 'Uploaded file must be an image'));
       return;
     }

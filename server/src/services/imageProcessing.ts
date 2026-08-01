@@ -1,4 +1,6 @@
 import sharp from 'sharp';
+import convertHeic from 'heic-convert';
+import { HttpError } from '../middleware/errorHandler';
 
 export interface PaletteColor {
   id: string;
@@ -161,18 +163,44 @@ function findNearest(target: Rgb, pool: PaletteEntry[], mode: ColorDistanceMode)
   return best;
 }
 
+// ISO base media file format container brands that mean "this is HEIC/HEIF".
+// sharp's bundled libvips can decode the HEIF container but only the AVIF
+// (AV1) codec inside it, not HEIC's HEVC codec — patent-licensing reasons,
+// not a bug — so HEIC needs converting to JPEG first via a WASM HEVC decoder
+// (heic-convert) before sharp ever sees it.
+const HEIC_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1']);
+
+function isHeic(buffer: Buffer): boolean {
+  if (buffer.length < 12 || buffer.toString('ascii', 4, 8) !== 'ftyp') return false;
+  return HEIC_BRANDS.has(buffer.toString('ascii', 8, 12).trim().toLowerCase());
+}
+
 /** Resizes the source image to exactly gridWidth x gridHeight and returns one RGB triple per cell. */
 export async function imageToPixelGrid(
   buffer: Buffer,
   gridWidth: number,
   gridHeight: number
 ): Promise<Rgb[]> {
-  const { data } = await sharp(buffer)
-    .flatten({ background: '#ffffff' })
-    .resize(gridWidth, gridHeight, { fit: 'fill' })
-    .removeAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  let sourceBuffer = buffer;
+  if (isHeic(buffer)) {
+    try {
+      sourceBuffer = Buffer.from(await convertHeic({ buffer, format: 'JPEG', quality: 0.92 }));
+    } catch {
+      throw new HttpError(400, 'This HEIC photo could not be converted. Try exporting it as JPEG or PNG first.');
+    }
+  }
+
+  let data: Buffer;
+  try {
+    ({ data } = await sharp(sourceBuffer)
+      .flatten({ background: '#ffffff' })
+      .resize(gridWidth, gridHeight, { fit: 'fill' })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true }));
+  } catch {
+    throw new HttpError(400, "This image format isn't supported, or the file is corrupted. Try a JPEG or PNG.");
+  }
 
   const pixels: Rgb[] = [];
   for (let i = 0; i < gridWidth * gridHeight; i++) {

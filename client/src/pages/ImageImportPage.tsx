@@ -69,6 +69,10 @@ export default function ImageImportPage() {
   const [distanceMode, setDistanceMode] = useState<'rgb' | 'perceptual'>('rgb');
   const [file, setFile] = useState<File | null>(null);
   const [imgAspect, setImgAspect] = useState<number | null>(null);
+  // Browsers other than Safari can't render HEIC in an <img> tag, so aspect
+  // auto-detection silently can't work for it — track that so the UI can
+  // explain why and point at the manual height field instead of looking broken.
+  const [aspectUnavailable, setAspectUnavailable] = useState(false);
   const [dominoesWide, setDominoesWide] = useState(40);
   const [keepAspect, setKeepAspect] = useState(true);
   const [manualHeight, setManualHeight] = useState(40);
@@ -111,6 +115,7 @@ export default function ImageImportPage() {
   function onFileChange(f: File | null) {
     setFile(f);
     setImgAspect(null);
+    setAspectUnavailable(false);
     setPreview(null);
     setChoice(null);
     if (!f) return;
@@ -122,7 +127,10 @@ export default function ImageImportPage() {
       }
       URL.revokeObjectURL(url);
     };
-    img.onerror = () => URL.revokeObjectURL(url);
+    img.onerror = () => {
+      setAspectUnavailable(true);
+      URL.revokeObjectURL(url);
+    };
     img.src = url;
   }
 
@@ -244,7 +252,7 @@ export default function ImageImportPage() {
           Image
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
             required
           />
@@ -281,7 +289,9 @@ export default function ImageImportPage() {
 
       <p className="hint" style={{ marginTop: '0.5rem' }}>
         Result: {dominoesWide} × {gridHeight} = {totalCells.toLocaleString()} dominoes.
-        {keepAspect && !imgAspect && ' Choose an image to auto-fit the height to its proportions.'}
+        {keepAspect && !imgAspect && !aspectUnavailable && ' Choose an image to auto-fit the height to its proportions.'}
+        {aspectUnavailable &&
+          " This browser can't preview this file (common with HEIC outside Safari), so the height couldn't be auto-fit — set \"Dominoes tall\" manually to match its proportions."}
       </p>
       {tooManyCells && (
         <p className="form-error">

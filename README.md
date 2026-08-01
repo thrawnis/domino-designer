@@ -55,6 +55,19 @@ distance** instead of plain RGB Euclidean distance, which more closely matches
 how humans perceive color similarity — helpful with a small/muted domino palette
 where RGB distance sometimes picks a visually-wrong nearest color.
 
+**Supported formats**: JPEG, PNG, WebP, GIF, AVIF, TIFF, and HEIC/HEIF (iPhone
+photos) all work. HEIC specifically needs an extra conversion step before
+`sharp` can touch it — `sharp`'s bundled libvips can decode the HEIF
+*container* but only the AVIF (AV1) codec inside it, not HEIC's HEVC codec
+(a patent-licensing exclusion in sharp's prebuilt binaries, not a bug), so
+`heic-convert` (a WASM HEVC decoder) transcodes HEIC to JPEG first. A
+genuinely corrupt or unsupported file now returns a clean 400 error instead
+of a raw 500 crash. One caveat: outside Safari, browsers can't render HEIC in
+an `<img>` preview, so the "auto-fit height to image proportions" feature
+can't detect a HEIC file's aspect ratio — the UI explains this and falls back
+to manual height entry rather than silently guessing wrong. Max upload size
+is 8MB.
+
 ## Known v1 limitations
 
 - Inventory quantity remaining is tracked **per design**, not across all of your

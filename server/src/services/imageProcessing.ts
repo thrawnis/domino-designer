@@ -175,20 +175,41 @@ function isHeic(buffer: Buffer): boolean {
   return HEIC_BRANDS.has(buffer.toString('ascii', 8, 12).trim().toLowerCase());
 }
 
+/** Converts HEIC to JPEG (a no-op for anything else) so sharp can always take it from here. */
+async function toProcessableBuffer(buffer: Buffer): Promise<Buffer> {
+  if (!isHeic(buffer)) return buffer;
+  try {
+    return Buffer.from(await convertHeic({ buffer, format: 'JPEG', quality: 0.92 }));
+  } catch {
+    throw new HttpError(400, 'This HEIC photo could not be converted. Try exporting it as JPEG or PNG first.');
+  }
+}
+
+/**
+ * Reads an image's pixel dimensions server-side. Used as a fallback for the
+ * browser's own <img> aspect-ratio detection, which can't render every format
+ * a browser accepts for upload (HEIC outside Safari, for instance) — the
+ * server can determine dimensions for anything it can decode, independent of
+ * what the requesting browser can render.
+ */
+export async function getImageDimensions(buffer: Buffer): Promise<{ width: number; height: number }> {
+  const processable = await toProcessableBuffer(buffer);
+  try {
+    const { width, height } = await sharp(processable).metadata();
+    if (!width || !height) throw new Error('missing dimensions');
+    return { width, height };
+  } catch {
+    throw new HttpError(400, "This image format isn't supported, or the file is corrupted. Try a JPEG or PNG.");
+  }
+}
+
 /** Resizes the source image to exactly gridWidth x gridHeight and returns one RGB triple per cell. */
 export async function imageToPixelGrid(
   buffer: Buffer,
   gridWidth: number,
   gridHeight: number
 ): Promise<Rgb[]> {
-  let sourceBuffer = buffer;
-  if (isHeic(buffer)) {
-    try {
-      sourceBuffer = Buffer.from(await convertHeic({ buffer, format: 'JPEG', quality: 0.92 }));
-    } catch {
-      throw new HttpError(400, 'This HEIC photo could not be converted. Try exporting it as JPEG or PNG first.');
-    }
-  }
+  const sourceBuffer = await toProcessableBuffer(buffer);
 
   let data: Buffer;
   try {

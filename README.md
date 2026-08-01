@@ -62,11 +62,19 @@ photos) all work. HEIC specifically needs an extra conversion step before
 (a patent-licensing exclusion in sharp's prebuilt binaries, not a bug), so
 `heic-convert` (a WASM HEVC decoder) transcodes HEIC to JPEG first. A
 genuinely corrupt or unsupported file now returns a clean 400 error instead
-of a raw 500 crash. One caveat: outside Safari, browsers can't render HEIC in
-an `<img>` preview, so the "auto-fit height to image proportions" feature
-can't detect a HEIC file's aspect ratio — the UI explains this and falls back
-to manual height entry rather than silently guessing wrong. Max upload size
-is 8MB.
+of a raw 500 crash.
+
+Outside Safari, browsers can't render HEIC in an `<img>` preview, so the
+client-side "auto-fit height to image proportions" check can't read a HEIC
+file's dimensions on its own. `POST /api/designs/image-dimensions` is a
+fallback the client calls automatically in that case — it decodes the file
+server-side (same HEIC conversion as above) and returns its width/height, so
+proportion auto-fit still works for any format the server can decode,
+regardless of what the browser itself can render.
+
+Max upload size is 10MB (`server/src/routes/imageImport.ts`; nginx's
+`client_max_body_size` in `deploy/nginx/domino-designer.conf` is set with a
+little headroom above it — keep them in sync if you change one).
 
 ## Known v1 limitations
 
@@ -185,5 +193,7 @@ npx prisma migrate dev
 - Rate limiting on `/api/auth/login` and `/api/auth/register` (10 requests / 15 min
   per IP).
 - `helmet` sets a restrictive Content-Security-Policy and standard security headers.
-- Image uploads are limited to 8MB and validated by MIME type; processed in-memory
-  via `sharp` (no files written to disk, no shell-outs).
+- Image uploads are limited to 10MB and validated by MIME type (with a
+  filename-extension fallback for HEIC/HEIF, which some OS/browser
+  combinations don't send a MIME type for); processed in-memory via `sharp`
+  and `heic-convert` (no files written to disk, no shell-outs).

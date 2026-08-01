@@ -9,6 +9,7 @@ import { PITCH_ASPECT, PITCH_X_RATIO, PITCH_Y_RATIO } from '../utils/dominoSpec'
 const CELL_ASPECT = 2;
 const MAX_CELLS = 12000;
 const MAX_DIM = 200;
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // Bounds how many previews get computed/rendered per request, for server load
 // and screen clutter — the algorithm list itself can have more than this.
 const MAX_SELECTED_ALGORITHMS = 6;
@@ -118,7 +119,13 @@ export default function ImageImportPage() {
     setAspectUnavailable(false);
     setPreview(null);
     setChoice(null);
+    setError(null);
     if (!f) return;
+    if (f.size > MAX_UPLOAD_BYTES) {
+      setFile(null);
+      setError(`That file is ${(f.size / 1024 / 1024).toFixed(1)}MB; the limit is 10MB.`);
+      return;
+    }
     const url = URL.createObjectURL(f);
     const img = new Image();
     img.onload = () => {
@@ -127,9 +134,19 @@ export default function ImageImportPage() {
       }
       URL.revokeObjectURL(url);
     };
-    img.onerror = () => {
-      setAspectUnavailable(true);
+    img.onerror = async () => {
       URL.revokeObjectURL(url);
+      // The browser couldn't render this for preview (e.g. HEIC outside
+      // Safari) — ask the server, which can decode anything sharp/heic-convert
+      // supports, independent of what this browser can render.
+      try {
+        const form = new FormData();
+        form.append('image', f);
+        const dims = await api.postForm<{ width: number; height: number }>('/designs/image-dimensions', form);
+        setImgAspect(dims.width / dims.height);
+      } catch {
+        setAspectUnavailable(true);
+      }
     };
     img.src = url;
   }
@@ -291,7 +308,7 @@ export default function ImageImportPage() {
         Result: {dominoesWide} × {gridHeight} = {totalCells.toLocaleString()} dominoes.
         {keepAspect && !imgAspect && !aspectUnavailable && ' Choose an image to auto-fit the height to its proportions.'}
         {aspectUnavailable &&
-          " This browser can't preview this file (common with HEIC outside Safari), so the height couldn't be auto-fit — set \"Dominoes tall\" manually to match its proportions."}
+          ' Couldn\'t determine this image\'s proportions, so the height couldn\'t be auto-fit — set "Dominoes tall" manually.'}
       </p>
       {tooManyCells && (
         <p className="form-error">

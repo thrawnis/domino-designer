@@ -4,14 +4,16 @@ import { z } from 'zod';
 import { prisma } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler, HttpError } from '../middleware/errorHandler';
-import { ALGORITHMS, Algorithm, generateGrid, imageToPixelGrid } from '../services/imageProcessing';
+import { ALGORITHMS, Algorithm, generateGrid, getImageDimensions, imageToPixelGrid } from '../services/imageProcessing';
 
 const router = Router();
 router.use(requireAuth);
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOAD_BYTES },
   fileFilter: (_req, file, cb) => {
     // Some OS/browser combinations don't have a registered MIME type for
     // .heic/.heif and send application/octet-stream instead — fall back to
@@ -58,6 +60,22 @@ const bodySchema = z
 router.get('/import-algorithms', (_req, res) => {
   res.json({ algorithms: ALGORITHMS });
 });
+
+// Fallback for when the browser can't preview the uploaded file itself (e.g.
+// HEIC outside Safari) to detect its aspect ratio for the "keep proportions"
+// option — the server can decode anything sharp/heic-convert supports,
+// independent of what the requesting browser can render.
+router.post(
+  '/image-dimensions',
+  upload.single('image'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      throw new HttpError(400, 'No image uploaded');
+    }
+    const dimensions = await getImageDimensions(req.file.buffer);
+    res.json(dimensions);
+  })
+);
 
 router.post(
   '/import-preview',

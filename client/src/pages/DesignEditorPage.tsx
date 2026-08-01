@@ -16,6 +16,10 @@ const PITCH_Y = TILE_H * PITCH_Y_RATIO;
 const TILE_OFFSET_X = (PITCH_X - TILE_W) / 2;
 const TILE_OFFSET_Y = (PITCH_Y - TILE_H) / 2;
 
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.25;
+
 interface LocalPlacement {
   localId: string;
   id?: string;
@@ -44,6 +48,12 @@ export default function DesignEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
+  // Collapsed by default on narrow (phone-width) screens so the canvas isn't
+  // squeezed into a sliver; always overridable via the toggle button.
+  const [paletteCollapsed, setPaletteCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 640
+  );
+  const [zoom, setZoom] = useState(1);
   const dragRef = useRef<{ localId: string; offsetX: number; offsetY: number; moved: boolean } | null>(
     null
   );
@@ -134,8 +144,8 @@ export default function DesignEditorPage() {
     }
     if (!design || !canvasRef.current || !selectedColorId) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / PITCH_X;
-    const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / PITCH_Y;
+    const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / (PITCH_X * zoom);
+    const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / (PITCH_Y * zoom);
     addTileAt(gx, gy);
   }
 
@@ -143,18 +153,19 @@ export default function DesignEditorPage() {
     e.stopPropagation();
     suppressNextCanvasClick.current = true;
     (e.target as Element).setPointerCapture(e.pointerId);
+    canvasRef.current?.focus();
     setSelectedPlacementId(p.localId);
     const rect = canvasRef.current!.getBoundingClientRect();
-    const pointerGx = (e.clientX - rect.left + canvasRef.current!.scrollLeft) / PITCH_X;
-    const pointerGy = (e.clientY - rect.top + canvasRef.current!.scrollTop) / PITCH_Y;
+    const pointerGx = (e.clientX - rect.left + canvasRef.current!.scrollLeft) / (PITCH_X * zoom);
+    const pointerGy = (e.clientY - rect.top + canvasRef.current!.scrollTop) / (PITCH_Y * zoom);
     dragRef.current = { localId: p.localId, offsetX: pointerGx - p.x, offsetY: pointerGy - p.y, moved: false };
   }
 
   function onTilePointerMove(e: React.PointerEvent) {
     if (!dragRef.current || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / PITCH_X - dragRef.current.offsetX;
-    const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / PITCH_Y - dragRef.current.offsetY;
+    const gx = (e.clientX - rect.left + canvasRef.current.scrollLeft) / (PITCH_X * zoom) - dragRef.current.offsetX;
+    const gy = (e.clientY - rect.top + canvasRef.current.scrollTop) / (PITCH_Y * zoom) - dragRef.current.offsetY;
     const { localId } = dragRef.current;
     dragRef.current.moved = true;
     setPlacements((prev) =>
@@ -184,23 +195,29 @@ export default function DesignEditorPage() {
     setDirty(true);
   }
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (!selectedPlacementId) return;
-      // Don't hijack Backspace/Delete/R while typing in a form field.
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-        return;
-      }
-      if (e.key === 'r' || e.key === 'R') rotateSelected();
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        deleteSelected();
-      }
+  function zoomIn() {
+    setZoom((z) => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 100) / 100));
+  }
+
+  function zoomOut() {
+    setZoom((z) => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 100) / 100));
+  }
+
+  function zoomReset() {
+    setZoom(1);
+  }
+
+  // Scoped to the canvas element's own focus (via onKeyDown below), not a window-level
+  // listener — otherwise Delete/Backspace pressed anywhere on the page (e.g. after
+  // focus moves to an unrelated button) would delete whatever tile was last selected.
+  function onCanvasKeyDown(e: React.KeyboardEvent) {
+    if (!selectedPlacementId) return;
+    if (e.key === 'r' || e.key === 'R') rotateSelected();
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      deleteSelected();
     }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  });
+  }
 
   useEffect(() => {
     if (!breakdownOpen) return;
@@ -265,6 +282,29 @@ export default function DesignEditorPage() {
           <input type="checkbox" checked={snap} onChange={(e) => setSnap(e.target.checked)} />
           Snap to grid
         </label>
+        <div className="zoom-controls">
+          <button
+            type="button"
+            className="secondary"
+            onClick={zoomOut}
+            disabled={zoom <= ZOOM_MIN}
+            aria-label="Zoom out"
+          >
+            −
+          </button>
+          <button type="button" className="secondary zoom-level" onClick={zoomReset} title="Reset zoom">
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={zoomIn}
+            disabled={zoom >= ZOOM_MAX}
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+        </div>
         <button className="secondary" onClick={rotateSelected} disabled={!selectedPlacementId}>
           Rotate (R)
         </button>
@@ -286,26 +326,44 @@ export default function DesignEditorPage() {
         <ColorBreakdownModal placements={placements} colors={colors} onClose={() => setBreakdownOpen(false)} />
       )}
 
-      <div className="editor-layout">
+      <div className={`editor-layout ${paletteCollapsed ? 'palette-collapsed' : ''}`}>
         <div className="palette-panel card">
-          <strong>Palette</strong>
-          <p className="hint">
-            Select a color, then click the canvas to place a domino. Dominoes are spaced automatically
-            so they don't touch, for stacking/toppling clearance.
-          </p>
+          <div className="palette-panel-header">
+            {!paletteCollapsed && <strong>Palette</strong>}
+            <button
+              type="button"
+              className="secondary palette-toggle"
+              onClick={() => setPaletteCollapsed((v) => !v)}
+              aria-label={paletteCollapsed ? 'Expand palette' : 'Collapse palette'}
+              title={paletteCollapsed ? 'Expand palette' : 'Collapse palette'}
+            >
+              {paletteCollapsed ? '»' : '«'}
+            </button>
+          </div>
+          {!paletteCollapsed && (
+            <p className="hint">
+              Select a color, then click the canvas to place a domino. Dominoes are spaced automatically
+              so they don't touch, for stacking/toppling clearance.
+            </p>
+          )}
           {colors.map((c) => (
             <div
               key={c.id}
               className={`palette-item ${selectedColorId === c.id ? 'selected' : ''}`}
               onClick={() => setSelectedColorId(c.id === selectedColorId ? null : c.id)}
+              title={`${c.name}: ${usedByColor.get(c.id) ?? 0} used, ${remaining(c.id)} remaining`}
             >
               <div className="palette-swatch" style={swatchStyle(c.hex)} />
-              <div>
-                <div>{c.name}</div>
-                <div style={{ fontSize: '0.8rem', color: '#667' }}>
-                  {usedByColor.get(c.id) ?? 0} used &middot; {remaining(c.id)} remaining
+              {paletteCollapsed ? (
+                <div className="palette-remaining">{remaining(c.id)}</div>
+              ) : (
+                <div>
+                  <div>{c.name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#667' }}>
+                    {usedByColor.get(c.id) ?? 0} used &middot; {remaining(c.id)} remaining
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
@@ -313,38 +371,51 @@ export default function DesignEditorPage() {
         <div
           className="canvas-wrap"
           ref={canvasRef}
+          tabIndex={0}
           onClick={onCanvasClick}
           onPointerMove={onTilePointerMove}
           onPointerUp={onTilePointerUp}
+          onKeyDown={onCanvasKeyDown}
           style={{
             width: '100%',
             height: '100%',
+            outline: 'none',
           }}
         >
           <div
             style={{
               position: 'relative',
-              width: design.gridWidth * PITCH_X,
-              height: design.gridHeight * PITCH_Y,
+              width: design.gridWidth * PITCH_X * zoom,
+              height: design.gridHeight * PITCH_Y * zoom,
             }}
           >
-            {placements.map((p) => (
-              <div
-                key={p.localId}
-                className={`domino-tile ${p.localId === selectedPlacementId ? 'draft' : ''}`}
-                onPointerDown={(e) => onTilePointerDown(e, p)}
-                style={{
-                  left: p.x * PITCH_X + TILE_OFFSET_X,
-                  top: p.y * PITCH_Y + TILE_OFFSET_Y,
-                  width: TILE_W,
-                  height: TILE_H,
-                  ...swatchStyle(currentHexById.get(p.colorId) ?? p.hex),
-                  transform: `rotate(${p.rotation}deg)`,
-                  transformOrigin: 'center',
-                  zIndex: p.zIndex,
-                }}
-              />
-            ))}
+            <div
+              style={{
+                position: 'relative',
+                width: design.gridWidth * PITCH_X,
+                height: design.gridHeight * PITCH_Y,
+                transform: `scale(${zoom})`,
+                transformOrigin: '0 0',
+              }}
+            >
+              {placements.map((p) => (
+                <div
+                  key={p.localId}
+                  className={`domino-tile ${p.localId === selectedPlacementId ? 'draft' : ''}`}
+                  onPointerDown={(e) => onTilePointerDown(e, p)}
+                  style={{
+                    left: p.x * PITCH_X + TILE_OFFSET_X,
+                    top: p.y * PITCH_Y + TILE_OFFSET_Y,
+                    width: TILE_W,
+                    height: TILE_H,
+                    ...swatchStyle(currentHexById.get(p.colorId) ?? p.hex),
+                    transform: `rotate(${p.rotation}deg)`,
+                    transformOrigin: 'center',
+                    zIndex: p.zIndex,
+                  }}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>

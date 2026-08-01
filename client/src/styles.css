@@ -100,7 +100,8 @@ select {
 .app-header {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
   padding: 0.75rem 1.5rem;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
@@ -114,6 +115,8 @@ select {
   display: flex;
   gap: 1rem;
   flex: 1;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .app-header nav a {
@@ -233,7 +236,7 @@ select {
   background: var(--panel);
   border-radius: 10px;
   padding: 1.5rem;
-  width: 360px;
+  width: min(360px, calc(100vw - 2rem));
   max-height: 90vh;
   overflow: auto;
   display: flex;
@@ -336,13 +339,32 @@ select {
   grid-template-columns: 260px 1fr;
   gap: 1rem;
   height: calc(100vh - 160px);
+  transition: grid-template-columns 0.15s ease;
+}
+
+.editor-layout.palette-collapsed {
+  grid-template-columns: 60px 1fr;
 }
 
 .palette-panel {
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.palette-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.palette-toggle {
+  padding: 0.25rem 0.5rem;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .palette-item {
@@ -368,12 +390,40 @@ select {
   flex-shrink: 0;
 }
 
+.palette-collapsed .palette-item {
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.3rem 0.1rem;
+}
+
+.palette-remaining {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .canvas-wrap {
   position: relative;
   overflow: auto;
-  background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 20px 20px;
+  background: #fafafa;
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.zoom-controls .secondary {
+  padding: 0.4rem 0.65rem;
+  min-width: 2.25rem;
+}
+
+.zoom-level {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.5rem;
 }
 
 .domino-tile {
@@ -438,4 +488,29 @@ select {
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    padding: 0.5rem 0.75rem;
+    gap: 0.4rem 1rem;
+  }
+
+  .app-main {
+    padding: 0.75rem;
+  }
+
+  .editor-layout {
+    grid-template-columns: 48px 1fr;
+    gap: 0.5rem;
+    height: calc(100vh - 190px);
+  }
+
+  .editor-layout:not(.palette-collapsed) {
+    grid-template-columns: 180px 1fr;
+  }
+
+  .toolbar {
+    gap: 0.4rem;
+  }
 }

@@ -11,7 +11,7 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
-const HUES = [0, 20, 35, 50, 65, 90, 140, 170, 195, 215, 235, 260, 285, 310, 335];
+const HUES = [0, 20, 35, 50, 60, 65, 90, 140, 170, 195, 215, 235, 260, 285, 310, 335];
 const LIGHTNESS_STEPS = [85, 72, 58, 45, 32];
 const GRAYSCALE = [100, 87, 74, 61, 48, 35, 22, 9, 0];
 

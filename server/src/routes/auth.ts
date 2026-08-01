@@ -12,7 +12,7 @@ const usernameSchema = z
   .trim()
   .min(3, 'Username must be at least 3 characters')
   .max(32, 'Username must be at most 32 characters')
-  .regex(/^[a-zA-Z0-9_-]+$/, 'Username may only contain letters, numbers, underscores, and hyphens');
+  .regex(/^[a-zA-Z0-9_@.-]+$/, 'Username may only contain letters, numbers, underscores, hyphens, periods, and @');
 
 // NIST 800-63B: enforce a minimum length, do not force arbitrary composition rules.
 const passwordSchema = z

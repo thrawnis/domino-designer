@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
 # rebuild.sh — Pull latest dev branch and redeploy with Docker
-# Usage: ./rebuild.sh
+# Usage: ./rebuild.sh [--pull-base-images]
 # Run from the repository root on your server.
+#
+# By default this does NOT re-check the base image (node:20-alpine) against
+# the registry — that check happens on every run and is pure network latency
+# for essentially zero benefit, since the base image rarely changes. Pass
+# --pull-base-images occasionally (e.g. monthly) to actually refresh it.
 
 set -euo pipefail
+
+PULL_BASE_IMAGES=false
+for arg in "$@"; do
+  if [ "$arg" = "--pull-base-images" ]; then
+    PULL_BASE_IMAGES=true
+  fi
+done
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 BRANCH="dev"
@@ -37,7 +49,12 @@ fi
 # -- Build and start containers -----------------------------------------------
 
 echo "==> Building containers"
-docker compose build --pull
+if [ "$PULL_BASE_IMAGES" = true ]; then
+  echo "==> (--pull-base-images: also re-checking base images against the registry)"
+  docker compose build --pull
+else
+  docker compose build
+fi
 
 # Bring up db without --force-recreate so existing connections are preserved.
 echo "==> Starting db"

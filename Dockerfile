@@ -1,10 +1,18 @@
+# syntax=docker/dockerfile:1
+# (pins the BuildKit frontend version so RUN --mount=type=cache below is
+# guaranteed supported, regardless of the host's installed buildx version)
+
 ## Build the client (Vite -> static assets emitted into server/public)
 FROM node:20-alpine AS client-build
 WORKDIR /repo
 COPY package.json ./
 COPY client/package.json client/package.json
 COPY server/package.json server/package.json
-RUN npm install --workspace client --include-workspace-root=false --ignore-scripts
+# Cache mount: persists npm's download cache across builds (in BuildKit's own
+# cache store, not the image), even when package.json changes and the normal
+# layer cache can't be reused — only genuinely new packages hit the network.
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --workspace client --include-workspace-root=false --ignore-scripts
 COPY client client
 RUN npm run build --workspace client
 
@@ -16,10 +24,14 @@ WORKDIR /repo
 RUN apk add --no-cache openssl
 COPY package.json ./
 COPY server/package.json server/package.json
-RUN npm install --workspace server --include-workspace-root=false
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --workspace server --include-workspace-root=false
 COPY server server
 COPY --from=client-build /repo/server/public server/public
-RUN npm run build --workspace server
+# Also cache Prisma's downloaded engine binaries and version-check state
+# (~/.cache/prisma and ~/.cache/prisma-nodejs), for the same reason.
+RUN --mount=type=cache,target=/root/.cache \
+    npm run build --workspace server
 
 ## Runtime image
 FROM node:20-alpine AS runtime

@@ -109,6 +109,12 @@ npx prisma migrate dev
    ```
    Or, for later redeploys, use `./rebuild.sh` — it pulls the latest `dev` branch,
    rebuilds, and restarts `db`/`app` without tearing down the Postgres volume.
+   It skips re-checking the base image against the registry by default (pure
+   network latency for essentially zero benefit on every rebuild); run
+   `./rebuild.sh --pull-base-images` occasionally (e.g. monthly) to actually
+   refresh it. The Dockerfile also uses BuildKit cache mounts for `npm install`
+   and Prisma's engine download, so even when dependencies change, only
+   genuinely new packages hit the network instead of the whole set.
 
    This builds one `app` image (Express server serving both the API and the built
    React static assets) and a `db` (Postgres) service with a named volume for

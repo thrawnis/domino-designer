@@ -382,6 +382,14 @@ select {
   background: #eef1fb;
 }
 
+.palette-item.over-inventory {
+  border-color: #e0a1a1;
+}
+
+.counts-table tr.over td {
+  color: #c02626;
+}
+
 .palette-swatch {
   width: 24px;
   height: 24px;
@@ -435,6 +443,13 @@ select {
 
 .domino-tile.draft {
   outline: 2px dashed var(--accent);
+}
+
+.marquee-rect {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: rgba(52, 87, 213, 0.12);
+  pointer-events: none;
 }
 
 .toolbar {
@@ -512,5 +527,40 @@ select {
 
   .toolbar {
     gap: 0.4rem;
+  }
+}
+
+/* Print only the currently-open modal (used for the color-breakdown "build sheet"),
+   regardless of where it's nested in the DOM. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .modal-backdrop,
+  .modal-backdrop * {
+    visibility: visible;
+  }
+
+  .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: none;
+  }
+
+  .modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    overflow: visible;
+    box-shadow: none;
+    border: none;
+  }
+
+  .print-hide {
+    display: none !important;
   }
 }

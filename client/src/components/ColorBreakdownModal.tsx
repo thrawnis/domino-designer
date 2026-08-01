@@ -11,6 +11,7 @@ interface ColorLike {
   id: string;
   name: string;
   hex: string;
+  quantity?: number;
 }
 
 interface Props {
@@ -54,10 +55,15 @@ export default function ColorBreakdownModal({ placements, colors, onClose }: Pro
   return (
     <div className="modal-backdrop">
       <div className="modal modal-wide">
-        <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>
+        <button type="button" className="modal-close print-hide" aria-label="Close" onClick={onClose}>
           ×
         </button>
-        <h2 style={{ paddingRight: '2rem' }}>Color counts</h2>
+        <div className="modal-header print-hide">
+          <h2>Color counts</h2>
+          <button type="button" className="secondary" onClick={() => window.print()}>
+            Print build sheet
+          </button>
+        </div>
 
         {placements.length === 0 ? (
           <p className="hint">No dominoes placed yet.</p>
@@ -74,15 +80,21 @@ export default function ColorBreakdownModal({ placements, colors, onClose }: Pro
                   </tr>
                 </thead>
                 <tbody>
-                  {totals.map(({ colorId, count, color }) => (
-                    <tr key={colorId}>
-                      <td>
-                        <div className="palette-swatch" style={swatchStyle(color?.hex ?? '#cccccc')} />
-                      </td>
-                      <td>{color?.name ?? 'Unknown color'}</td>
-                      <td>{count}</td>
-                    </tr>
-                  ))}
+                  {totals.map(({ colorId, count, color }) => {
+                    const over = color?.quantity != null && count > color.quantity;
+                    return (
+                      <tr key={colorId} className={over ? 'over' : ''}>
+                        <td>
+                          <div className="palette-swatch" style={swatchStyle(color?.hex ?? '#cccccc')} />
+                        </td>
+                        <td>{color?.name ?? 'Unknown color'}</td>
+                        <td>
+                          {count}
+                          {over && ` (short ${count - (color!.quantity as number)})`}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   <tr>
                     <td />
                     <td>
@@ -97,7 +109,7 @@ export default function ColorBreakdownModal({ placements, colors, onClose }: Pro
             </div>
 
             <div>
-              <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.5rem' }}>
+              <div className="print-hide" style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.5rem' }}>
                 <button type="button" className={tab === 'row' ? '' : 'secondary'} onClick={() => setTab('row')}>
                   By row
                 </button>

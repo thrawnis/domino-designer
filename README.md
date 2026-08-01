@@ -124,18 +124,33 @@ npx prisma migrate dev
    openssl rand -base64 48   # use output for SESSION_SECRET
    openssl rand -base64 24   # use output for POSTGRES_PASSWORD
    ```
-2. Build and start:
+2. Build and start — use `./rebuild.sh` for this (including the first time),
+   both now and for every later redeploy:
    ```bash
-   docker compose up -d --build
+   ./rebuild.sh
    ```
-   Or, for later redeploys, use `./rebuild.sh` — it pulls the latest `dev` branch,
-   rebuilds, and restarts `db`/`app` without tearing down the Postgres volume.
-   It skips re-checking the base image against the registry by default (pure
-   network latency for essentially zero benefit on every rebuild); run
-   `./rebuild.sh --pull-base-images` occasionally (e.g. monthly) to actually
-   refresh it. The Dockerfile also uses BuildKit cache mounts for `npm install`
-   and Prisma's engine download, so even when dependencies change, only
-   genuinely new packages hit the network instead of the whole set.
+   It pulls the latest `dev` branch, builds, and restarts `db`/`app` without
+   tearing down the Postgres volume. It skips re-checking the base image
+   against the registry by default (pure network latency for essentially zero
+   benefit on every rebuild); run `./rebuild.sh --pull-base-images`
+   occasionally (e.g. monthly) to actually refresh it. The Dockerfile also
+   uses BuildKit cache mounts for `npm install` and Prisma's engine download,
+   so even when dependencies change, only genuinely new packages hit the
+   network instead of the whole set.
+
+   **Important**: the image is built with `docker buildx build` directly, not
+   `docker compose build`/`docker compose up --build`. On some hosts, Compose's
+   own detection of the buildx plugin is unreliable and silently falls back to
+   the legacy (non-BuildKit) builder — which can't handle this Dockerfile's
+   `RUN --mount=type=cache` syntax at all and fails outright. If you're not
+   using `rebuild.sh`, build manually with:
+   ```bash
+   docker buildx build -t domino-designer-app:latest --load .
+   docker compose up -d
+   ```
+   (`docker-compose.yml` pins `app`'s image name to `domino-designer-app:latest`
+   specifically so Compose picks up this build instead of trying, and failing,
+   to build it again itself.)
 
    This builds one `app` image (Express server serving both the API and the built
    React static assets) and a `db` (Postgres) service with a named volume for

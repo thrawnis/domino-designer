@@ -31,30 +31,24 @@ if [ ! -f "$REPO_DIR/.env" ]; then
   exit 1
 fi
 
-# Docker Compose looks for the buildx plugin under ~/.docker/cli-plugins first;
-# on some hosts it's only installed system-wide, which Compose won't find on its
-# own, causing multi-stage builds to silently fall back to the legacy builder and
-# fail. Symlink it in if needed.
-if [ ! -x "$HOME/.docker/cli-plugins/docker-buildx" ]; then
-  for candidate in /usr/libexec/docker/cli-plugins/docker-buildx /usr/lib/docker/cli-plugins/docker-buildx; do
-    if [ -x "$candidate" ]; then
-      echo "==> Linking docker-buildx into ~/.docker/cli-plugins so Compose can find it"
-      mkdir -p "$HOME/.docker/cli-plugins"
-      ln -sf "$candidate" "$HOME/.docker/cli-plugins/docker-buildx"
-      break
-    fi
-  done
-fi
-
 # -- Build and start containers -----------------------------------------------
 
-echo "==> Building containers"
+# Built directly with `docker buildx build` rather than `docker compose build`:
+# on this host (and apparently not uniquely — this has bitten us more than
+# once), Compose's own detection of the buildx plugin is unreliable and
+# silently falls back to the legacy (non-BuildKit) builder, which can't
+# handle the Dockerfile's `RUN --mount=type=cache` syntax at all and fails
+# outright. `docker buildx build` goes through the docker CLI's own plugin
+# resolution instead, which has proven reliable here. The image name below
+# must match docker-compose.yml's `app.image` so Compose picks up exactly
+# this build instead of trying (and failing) to build it again itself.
+echo "==> Building app image"
+BUILDX_ARGS=(build -t domino-designer-app:latest --load .)
 if [ "$PULL_BASE_IMAGES" = true ]; then
   echo "==> (--pull-base-images: also re-checking base images against the registry)"
-  docker compose build --pull
-else
-  docker compose build
+  BUILDX_ARGS+=(--pull)
 fi
+docker buildx "${BUILDX_ARGS[@]}"
 
 # Bring up db without --force-recreate so existing connections are preserved.
 echo "==> Starting db"
@@ -63,7 +57,7 @@ docker compose up -d db
 # Only force-recreate the app container; it runs `prisma migrate deploy` on
 # startup (see server/docker-entrypoint.sh) before the server starts.
 echo "==> Deploying app"
-docker compose up -d --force-recreate --remove-orphans app
+docker compose up -d --force-recreate --remove-orphans --no-build app
 
 echo "==> Removing dangling images"
 docker image prune -f

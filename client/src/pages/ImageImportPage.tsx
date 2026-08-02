@@ -13,7 +13,9 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // Bounds how many previews get computed/rendered per request, for server load
 // and screen clutter — the algorithm list itself can have more than this.
 const MAX_SELECTED_ALGORITHMS = 6;
-const DEFAULT_ALGORITHM_IDS = ['nearest', 'floyd-steinberg'];
+// Pre-select a broad spread up to the comparison cap so the page shows several
+// styles by default, rather than requiring the user to discover the checkboxes.
+const DEFAULT_ALGORITHM_IDS = ['nearest', 'floyd-steinberg', 'atkinson', 'stucki', 'jarvis-judice-ninke', 'bayer'];
 
 interface PreviewResponse {
   gridWidth: number;

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rebuild.sh — Pull latest dev branch and redeploy with Docker
+# rebuild.sh — Pull latest main branch and redeploy with Docker
 # Usage: ./rebuild.sh [--pull-base-images]
 # Run from the repository root on your server.
 #
@@ -18,7 +18,7 @@ for arg in "$@"; do
 done
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-BRANCH="dev"
+BRANCH="main"
 
 echo "==> Pulling latest code from branch: $BRANCH"
 cd "$REPO_DIR"

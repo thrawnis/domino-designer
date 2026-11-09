@@ -129,7 +129,7 @@ npx prisma migrate dev
    ```bash
    ./rebuild.sh
    ```
-   It pulls the latest `dev` branch, builds, and restarts `db`/`app` without
+   It pulls the latest `main` branch, builds, and restarts `db`/`app` without
    tearing down the Postgres volume. It skips re-checking the base image
    against the registry by default (pure network latency for essentially zero
    benefit on every rebuild); run `./rebuild.sh --pull-base-images`

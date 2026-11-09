@@ -1,28 +1,48 @@
 #!/usr/bin/env bash
-# rebuild.sh — Pull latest main branch and redeploy with Docker
-# Usage: ./rebuild.sh [--pull-base-images]
+# rebuild.sh — Pull latest main branch and redeploy with Docker, but only if
+# there's actually something new to deploy.
+# Usage: ./rebuild.sh [--pull-base-images] [--force]
 # Run from the repository root on your server.
 #
 # By default this does NOT re-check the base image (node:20-alpine) against
 # the registry — that check happens on every run and is pure network latency
 # for essentially zero benefit, since the base image rarely changes. Pass
 # --pull-base-images occasionally (e.g. monthly) to actually refresh it.
+#
+# By default, if origin/main has no new commits since the last run, the
+# build/deploy steps are skipped entirely (they're not free: a full image
+# build and container restart even when nothing changed). Pass --force to
+# rebuild and redeploy anyway, e.g. after editing docker-compose.yml, the
+# Dockerfile, or .env by hand without a new commit.
 
 set -euo pipefail
 
 PULL_BASE_IMAGES=false
+FORCE=false
 for arg in "$@"; do
-  if [ "$arg" = "--pull-base-images" ]; then
-    PULL_BASE_IMAGES=true
-  fi
+  case "$arg" in
+    --pull-base-images) PULL_BASE_IMAGES=true ;;
+    --force) FORCE=true ;;
+  esac
 done
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 BRANCH="main"
 
-echo "==> Pulling latest code from branch: $BRANCH"
 cd "$REPO_DIR"
+
+echo "==> Fetching branch: $BRANCH"
 git fetch origin "$BRANCH"
+
+OLD_COMMIT="$(git rev-parse HEAD)"
+NEW_COMMIT="$(git rev-parse "origin/$BRANCH")"
+
+if [ "$OLD_COMMIT" = "$NEW_COMMIT" ] && [ "$FORCE" != true ]; then
+  echo "==> Already up to date ($OLD_COMMIT) — nothing to build or deploy. Pass --force to rebuild anyway."
+  exit 0
+fi
+
+echo "==> New code: $OLD_COMMIT -> $NEW_COMMIT"
 git checkout "$BRANCH"
 git reset --hard "origin/$BRANCH"
 

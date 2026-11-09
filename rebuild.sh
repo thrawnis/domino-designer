@@ -9,11 +9,16 @@
 # for essentially zero benefit, since the base image rarely changes. Pass
 # --pull-base-images occasionally (e.g. monthly) to actually refresh it.
 #
-# By default, if origin/main has no new commits since the last run, the
-# build/deploy steps are skipped entirely (they're not free: a full image
-# build and container restart even when nothing changed). Pass --force to
-# rebuild and redeploy anyway, e.g. after editing docker-compose.yml, the
-# Dockerfile, or .env by hand without a new commit.
+# By default, if origin/main has no new commits since the last run AND the
+# currently running app container was itself built from that same commit,
+# the build/deploy steps are skipped entirely (they're not free: a full
+# image build and container restart even when nothing changed). The second
+# check matters on its own — git being up to date doesn't prove the
+# container is: a previous run could have reset the checkout but then
+# failed partway through the build/deploy, or someone could have fiddled
+# with git or Docker state by hand — so a mismatch there forces a rebuild
+# even with no new commit. Pass --force to rebuild and redeploy regardless,
+# e.g. after editing docker-compose.yml, the Dockerfile, or .env by hand.
 
 set -euo pipefail
 
@@ -37,12 +42,25 @@ git fetch origin "$BRANCH"
 OLD_COMMIT="$(git rev-parse HEAD)"
 NEW_COMMIT="$(git rev-parse "origin/$BRANCH")"
 
-if [ "$OLD_COMMIT" = "$NEW_COMMIT" ] && [ "$FORCE" != true ]; then
-  echo "==> Already up to date ($OLD_COMMIT) — nothing to build or deploy. Pass --force to rebuild anyway."
+# What commit is the currently running app container actually built from?
+# Empty if the container doesn't exist yet (e.g. first deploy) or predates
+# this label being introduced, either of which should force a build.
+RUNNING_CID="$(docker compose ps -q app 2>/dev/null || true)"
+RUNNING_COMMIT=""
+if [ -n "$RUNNING_CID" ]; then
+  RUNNING_COMMIT="$(docker inspect --format '{{ index .Config.Labels "domino.gitCommit" }}' "$RUNNING_CID" 2>/dev/null || true)"
+fi
+
+if [ "$OLD_COMMIT" = "$NEW_COMMIT" ] && [ "$RUNNING_COMMIT" = "$NEW_COMMIT" ] && [ "$FORCE" != true ]; then
+  echo "==> Already up to date ($OLD_COMMIT) and running that build — nothing to do. Pass --force to rebuild anyway."
   exit 0
 fi
 
-echo "==> New code: $OLD_COMMIT -> $NEW_COMMIT"
+if [ "$OLD_COMMIT" = "$NEW_COMMIT" ] && [ "$RUNNING_COMMIT" != "$NEW_COMMIT" ]; then
+  echo "==> Code is up to date, but the running container is built from '${RUNNING_COMMIT:-<none>}', not $NEW_COMMIT — rebuilding."
+else
+  echo "==> New code: $OLD_COMMIT -> $NEW_COMMIT"
+fi
 git checkout "$BRANCH"
 git reset --hard "origin/$BRANCH"
 
@@ -70,7 +88,7 @@ fi
 # run completed successfully. Root cause not fully understood; --tag is a
 # verified-working, zero-downside substitute, so use it.
 echo "==> Building app image"
-BUILDX_ARGS=(build --tag domino-designer-app:latest --load "$REPO_DIR")
+BUILDX_ARGS=(build --tag domino-designer-app:latest --label "domino.gitCommit=$NEW_COMMIT" --load "$REPO_DIR")
 if [ "$PULL_BASE_IMAGES" = true ]; then
   echo "==> (--pull-base-images: also re-checking base images against the registry)"
   BUILDX_ARGS+=(--pull)

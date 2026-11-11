@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# rebuild.sh — Pull latest main branch and redeploy with Docker, but only if
-# there's actually something new to deploy.
+# rebuild.sh — Always discard any local changes and sync to the latest main
+# branch, then redeploy with Docker, but only rebuild/restart if there's
+# actually something new to deploy.
 # Usage: ./rebuild.sh [--pull-base-images] [--force]
 # Run from the repository root on your server.
+#
+# The git sync step (checkout + hard reset + clean) always runs, unconditionally,
+# every time: whatever is on disk — hand edits, stray commits, leftover merge
+# state, untracked files — is discarded in favor of exactly what's on
+# origin/main. .env is untouched (it's gitignored, so `git clean` leaves it
+# alone) and is the only thing on the server this script doesn't overwrite.
 #
 # By default this does NOT re-check the base image (node:20-alpine) against
 # the registry — that check happens on every run and is pure network latency
@@ -40,7 +47,16 @@ echo "==> Fetching branch: $BRANCH"
 git fetch origin "$BRANCH"
 
 OLD_COMMIT="$(git rev-parse HEAD)"
-NEW_COMMIT="$(git rev-parse "origin/$BRANCH")"
+
+# Always discard any local changes (hand edits, stray commits, merge leftovers,
+# whatever) and land exactly on origin/$BRANCH, regardless of whether a
+# rebuild ends up happening below — this runs unconditionally, every time.
+echo "==> Discarding local changes and syncing to origin/$BRANCH"
+git checkout "$BRANCH"
+git reset --hard "origin/$BRANCH"
+git clean -fd
+
+NEW_COMMIT="$(git rev-parse HEAD)"
 
 # What commit is the currently running app container actually built from?
 # Empty if the container doesn't exist yet (e.g. first deploy) or predates
@@ -61,8 +77,6 @@ if [ "$OLD_COMMIT" = "$NEW_COMMIT" ] && [ "$RUNNING_COMMIT" != "$NEW_COMMIT" ]; 
 else
   echo "==> New code: $OLD_COMMIT -> $NEW_COMMIT"
 fi
-git checkout "$BRANCH"
-git reset --hard "origin/$BRANCH"
 
 if [ ! -f "$REPO_DIR/.env" ]; then
   echo "ERROR: .env not found in $REPO_DIR (copy .env.example to .env and fill it in first)"

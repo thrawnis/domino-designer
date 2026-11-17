@@ -69,8 +69,15 @@ fi
 
 if [ "$OLD_COMMIT" = "$NEW_COMMIT" ] && [ "$RUNNING_COMMIT" = "$NEW_COMMIT" ] && [ "$FORCE" != true ]; then
   echo "==> Already up to date ($OLD_COMMIT) and running that build — nothing to do. Pass --force to rebuild anyway."
+  # Machine-readable marker for Deployment Helper; exactly one DEPLOY_STATUS line is printed per run.
+  echo "##DEPLOY_STATUS:NO_CHANGE##"
   exit 0
 fi
+
+# Past this point the app is being rebuilt and redeployed (new commits, a stale
+# running container, or --force), printed before any build step so it reflects
+# detection only, not whether the deploy later succeeds.
+echo "##DEPLOY_STATUS:UPDATED##"
 
 if [ "$OLD_COMMIT" = "$NEW_COMMIT" ] && [ "$RUNNING_COMMIT" != "$NEW_COMMIT" ]; then
   echo "==> Code is up to date, but the running container is built from '${RUNNING_COMMIT:-<none>}', not $NEW_COMMIT — rebuilding."

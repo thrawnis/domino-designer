@@ -56,7 +56,7 @@ export function createApp() {
         // HTTPS (via a reverse proxy or Cloudflare Tunnel) at the same time.
         secure: 'auto',
         sameSite: 'lax',
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        maxAge: 1000 * 60 * 60 * 24 * 90, // 90 days
       },
     })
   );
